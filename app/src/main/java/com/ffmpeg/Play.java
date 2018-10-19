@@ -32,6 +32,8 @@ public class Play implements SurfaceHolder.Callback {
 
     }
 
+    private long mNativePlayer;
+
     private HandlerThread mHandlerThread;
     private Handler mHandler;
     private Handler mMainHandler;
@@ -39,6 +41,8 @@ public class Play implements SurfaceHolder.Callback {
     private SurfaceView surfaceView;
 
     public Play() {
+        mNativePlayer = _init();
+
         mHandlerThread = new HandlerThread("play");
         mHandlerThread.start();
 
@@ -129,6 +133,8 @@ public class Play implements SurfaceHolder.Callback {
             }
         });
     }
+
+    public native long _init();
 
     public native int _play(String path);
 

@@ -20,11 +20,16 @@ add_library( # Sets the name of the library.
 
         sonic/sonic.c
 
-        FFmpegMusic.cpp
-        FFmpegVideo.cpp
-        Player.cpp
-        player_jni.cpp
-        AVPacketQueueUtil.c
+#        old/FFmpegMusic.cpp
+#        old/FFmpegVideo.cpp
+#        old/Player.cpp
+#        player_jni.cpp
+#        old/AVPacketQueueUtil.c
+
+        ff_player.c
+        ff_packet_queuel.c
+        ff_audio.c
+        player_jni.c
         )
 
 
@@ -50,16 +55,7 @@ add_library(libswscale SHARED IMPORTED)
 set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libswscale.so)
 
 
-set(LEAKTRACER_SOURCES
-        ${CMAKE_SOURCE_DIR}/../jniLibs/libleaktracer/src/AllocationHandlers.cpp
-        ${CMAKE_SOURCE_DIR}/../jniLibs/libleaktracer/src/MemoryTrace.cpp
-        )
-add_library(leaktracer STATIC ${LEAKTRACER_SOURCES})
-
-
-
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/../jniLibs/include
-        ${CMAKE_SOURCE_DIR}/../jniLibs/libleaktracer/include/
         )
 
 # Searches for a specified prebuilt library and stores the path as a
@@ -89,7 +85,7 @@ target_link_libraries( # Specifies the target library.
         libswresample
         libswscale
 
-        leaktracer
+#        leaktracer
 #        libsoundtouch
         # Links the target library to the log library
         # included in the NDK.

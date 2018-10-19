@@ -1,0 +1,122 @@
+//
+// Created by yijunwu on 2018/10/19.
+//
+#ifndef FF_PLAYER_DEF_H
+#define FF_PLAYER_DEF_H
+
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libswscale/swscale.h>
+#include <libswresample/swresample.h>
+#include <SLES/OpenSLES.h>
+#include <SLES/OpenSLES_Android.h>
+#include <android/native_window.h>
+
+#include "ff_packet_queuel.h"
+#include "sonic/sonic.h"
+
+#define bool int
+#define false 0
+#define true 1
+
+typedef struct Player Player;
+typedef struct Video Video;
+typedef struct Audio Audio;
+
+struct Player {
+    const char *inputPath;
+    pthread_t p_id;
+
+    Video *video;
+    Audio *audio;
+
+    bool isPlay;
+    int64_t duration;
+    AVFormatContext *pFormatCtx;
+    AVPacket *packet;
+
+    bool isCutImage;
+
+    //同步锁
+    pthread_mutex_t mutex;
+    //条件变量
+    pthread_cond_t cond;
+
+    //Android
+    JavaVM *pJavaVM;
+    jobject pInstance;
+    bool isSize;
+    double preClock;
+
+    ANativeWindow *window;
+};
+
+
+struct Video {
+    int index;//流索引
+    bool isPlay;//是否正在播放
+    bool isPause;//是否暂停
+    pthread_t p_id;//处理线程
+    Queue *queue;//队列
+
+    AVCodecContext *codec;//解码器上下文
+
+    struct SwsContext *swsContext;
+    //同步锁
+    pthread_mutex_t mutex;
+    //条件变量
+    pthread_cond_t cond;
+
+    Audio *audio;
+
+    AVRational time_base;
+    double clock; //当前播放的时间
+};
+
+
+struct Audio {
+    int index;//流索引
+    bool isPlay;//是否正在播放
+    bool isPause;
+
+    bool isSilence;//静音
+
+    AVPacket *avPacket;
+    AVFrame *avFrame;
+
+    pthread_t p_id;//处理线程
+    Queue *queue;//队列
+    // std::queue<AVPacket*> queueNull;//空队列
+    AVCodecContext *codec;//解码器上下文
+
+    SwrContext *swrContext;
+    uint8_t *out_buffer;
+    int out_channer_nb;
+
+    //同步锁
+    pthread_mutex_t mutex;
+    //条件变量
+    pthread_cond_t cond;
+
+    double clock;//从第一zhen开始所需要时间
+
+    AVRational time_base;
+
+    SLObjectItf engineObject;
+    SLEngineItf engineEngine;
+    SLEnvironmentalReverbItf outputMixEnvironmentalReverb;
+    SLObjectItf outputMixObject;
+    SLObjectItf bqPlayerObject;
+    SLEffectSendItf bqPlayerEffectSend;
+    SLVolumeItf bqPlayerVolume;
+    SLPlayItf bqPlayerPlay;
+    SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue;
+
+    //倍速
+    float rate;
+    sonicStream sonic;
+    short *out_rate_buffer;
+};
+
+//
+#endif

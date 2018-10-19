@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
         mPlayer = new Play();
         mPlayer.setOnPlayCallback(this);
         mPlayer.setSurfaceView(surfaceView);
-//        mInfoView.setText(mPlayer._configuration());
+        mInfoView.setText(mPlayer._configuration());
     }
 
     private void initView() {

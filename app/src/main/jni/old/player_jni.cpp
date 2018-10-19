@@ -20,7 +20,7 @@ extern "C" {
 #include <unistd.h>
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
-#include "Log.h"
+#include "../log.h"
 }
 char *inputPath;
 
@@ -232,20 +232,20 @@ class MemoryTest {
 
 };
 
-void test() {
-    leaktracer::MemoryTrace::GetInstance().startMonitoringAllThreads();
-    MemoryTest *memoryTest = new MemoryTest;
-//    delete memoryTest;
-    leaktracer::MemoryTrace::GetInstance().stopAllMonitoring();
-
-    std::ofstream out;
-    out.open("/sdcard/log.txt", std::ios_base::out);
-    if (out.is_open()) {
-        leaktracer::MemoryTrace::GetInstance().writeLeaks(out);
-    } else {
-        LOGE("Failed to write to \"leaks.out\"\n");
-    }
-}
+//void test() {
+//    leaktracer::MemoryTrace::GetInstance().startMonitoringAllThreads();
+//    MemoryTest *memoryTest = new MemoryTest;
+////    delete memoryTest;
+//    leaktracer::MemoryTrace::GetInstance().stopAllMonitoring();
+//
+//    std::ofstream out;
+//    out.open("/sdcard/log.txt", std::ios_base::out);
+//    if (out.is_open()) {
+//        leaktracer::MemoryTrace::GetInstance().writeLeaks(out);
+//    } else {
+//        LOGE("Failed to write to \"leaks.out\"\n");
+//    }
+//}
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -258,6 +258,7 @@ Java_com_ffmpeg_Play__1play(JNIEnv *env, jobject instance, jstring inputPath_) {
     if (pJavaVM == NULL) {
         env->GetJavaVM(&pJavaVM);
     }
+
     if (pInstance == NULL) {
         pInstance = env->NewGlobalRef(instance);
     }
@@ -347,7 +348,6 @@ Java_com_ffmpeg_Play__1cut(JNIEnv *env, jobject instance) {
 }
 
 
-extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_ffmpeg_Play__1configuration(JNIEnv *env, jobject instance) {
 
@@ -358,4 +358,9 @@ Java_com_ffmpeg_Play__1configuration(JNIEnv *env, jobject instance) {
     sprintf(info, "%s\n", avcodec_configuration());
 
     return env->NewStringUTF(info);
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_ffmpeg_Play__1init(JNIEnv *env, jobject instance) {
+
 }

@@ -17,7 +17,7 @@ extern "C" {
 #include "Log.h"
 #include <libavformat/avformat.h>
 
-#include "sonic/sonic.h"
+#include "../sonic/sonic.h"
 #include "AVPacketQueueUtil.h"
 
 class FFmpegMusic {

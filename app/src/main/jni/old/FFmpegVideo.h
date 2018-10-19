@@ -17,7 +17,6 @@ extern "C" {
 #include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
 #include <libavformat/avformat.h>
-#include "Log.h"
 #include <libavutil/imgutils.h>
 #include <libavutil/time.h>
 #include "AVPacketQueueUtil.h"
