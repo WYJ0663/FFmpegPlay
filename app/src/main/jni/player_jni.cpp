@@ -22,7 +22,7 @@ extern "C" {
 #include <SLES/OpenSLES_Android.h>
 #include "Log.h"
 }
-const char *inputPath;
+char *inputPath;
 
 Player *player;
 
@@ -31,11 +31,9 @@ jobject pInstance;
 bool isSize = false;
 double preClock;
 
-
 pthread_t p_tid;
 
 ANativeWindow *window = 0;
-
 
 void changeSize(int width, int height) {
 
@@ -210,12 +208,20 @@ void initWindow() {
     }
 }
 
+void parseCall() {
+    if (player) {
+        player->startQueue();
+    }
+}
+
 void *begin(void *avg) {
     player = new Player;
     player->ffmpegVideo->setPlayCall(call_video_play);
     player->ffmpegMusic->setPlayCall(call_music_play);
     player->setWindowCallback(initWindow);
     player->setTotalTimeCallback(setTotalTime);
+    player->ffmpegMusic->setParseCall(parseCall);
+    player->ffmpegVideo->setParseCall(parseCall);
 
     player->init(inputPath);
     player->play();
@@ -247,7 +253,7 @@ Java_com_ffmpeg_Play__1play(JNIEnv *env, jobject instance, jstring inputPath_) {
 
     stop(env);
 
-    leaktracer::MemoryTrace::GetInstance().startMonitoringAllThreads();
+//    leaktracer::MemoryTrace::GetInstance().startMonitoringAllThreads();
 
     if (pJavaVM == NULL) {
         env->GetJavaVM(&pJavaVM);
@@ -256,7 +262,7 @@ Java_com_ffmpeg_Play__1play(JNIEnv *env, jobject instance, jstring inputPath_) {
         pInstance = env->NewGlobalRef(instance);
     }
 
-    inputPath = env->GetStringUTFChars(inputPath_, 0);
+    inputPath = const_cast<char *>(env->GetStringUTFChars(inputPath_, 0));
 
     pthread_create(&p_tid, NULL, begin, NULL);//开启begin线程
 
@@ -282,24 +288,27 @@ Java_com_ffmpeg_Play__1stop(JNIEnv *env, jobject instance) {
     LOGE("click stop");
     stop(env);
 
-
 }
 
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_ffmpeg_Play__1pause(JNIEnv *env, jobject instance) {
-    LOGE("leaks click stop");
-    leaktracer::MemoryTrace::GetInstance().stopAllMonitoring();
+//    LOGE("leaks click stop");
+//    leaktracer::MemoryTrace::GetInstance().stopAllMonitoring();
+//
+//    std::ofstream out;
+//    out.open("/sdcard/log.txt", std::ios_base::out);
+//
+//    if (out.is_open()) {
+//        LOGE("leaks save");
+//        leaktracer::MemoryTrace::GetInstance().writeLeaks(out);
+//    } else {
+//        LOGE("Failed to write to \"leaks.out\"\n");
+//    }
 
-    std::ofstream out;
-    out.open("/sdcard/log.txt", std::ios_base::out);
-
-    if (out.is_open()) {
-        LOGE("leaks save");
-        leaktracer::MemoryTrace::GetInstance().writeLeaks(out);
-    } else {
-        LOGE("Failed to write to \"leaks.out\"\n");
+    if (player) {
+        player->pause();
     }
 }
 
@@ -310,7 +319,6 @@ Java_com_ffmpeg_Play__1seekTo(JNIEnv *env, jobject instance, jint msec) {
         player->seekTo(msec / 1000);
         preClock = msec / 1000;
     }
-
 }
 
 extern "C"
@@ -344,7 +352,7 @@ JNIEXPORT jstring JNICALL
 Java_com_ffmpeg_Play__1configuration(JNIEnv *env, jobject instance) {
 
     // TODO
-    char info[10000] = { 0 };
+    char info[10000] = {0};
 //    av_register_all();
 
     sprintf(info, "%s\n", avcodec_configuration());

@@ -40,8 +40,10 @@ public:
 
     void setPlayCall(void (*call)(double clock));
 
+    void setParseCall(void (*call)( ));
     //成员变量
 public:
+
     int index;//流索引
     bool isPlay = false;//是否正在播放
     bool isPause = false;
@@ -82,6 +84,7 @@ public:
     float rate = 1;
     sonicStream sonic;
     short *out_rate_buffer;
+
 };
 
 };

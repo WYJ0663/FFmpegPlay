@@ -44,8 +44,10 @@ public:
 
     void setPlayCall(void (*call)(AVFrame *frame));
 
+    void setParseCall(void (*call)( ));
 
 public:
+
     int index;//流索引
     bool isPlay = false;//是否正在播放
     bool isPause = false;//是否暂停
@@ -64,6 +66,7 @@ public:
 
     AVRational time_base;
     double clock; //当前播放的时间
+
 
 };
 

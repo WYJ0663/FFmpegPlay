@@ -1,18 +1,18 @@
 //
 // Created by yijunwu on 2018/10/17.
 //
-#ifndef _TEST_H_
-#define _TEST_H_
+#ifndef AVPacketQueueUtilH
+#define AVPacketQueueUtilH
 
 #include <libavcodec/avcodec.h>
 
 //存储的数量限制
-#define MAX_SIZE 1000;
-#define MIN_SIZE 500;
+#define MAX_QUEUE_SIZE 1000
+#define MIN_QUEUE_SIZE 500
 
-typedef struct itemyijun {
+typedef struct item {
     AVPacket *data;
-    struct itemyijun *next;
+    struct item *next;
 } Node;
 
 
@@ -26,6 +26,7 @@ typedef struct linkedlist {
 Queue *createQueue();
 
 void freeQueue(Queue *queue);
+
 //入队
 void enQueue(Queue *queue, AVPacket *data);
 
@@ -33,5 +34,11 @@ void enQueue(Queue *queue, AVPacket *data);
 AVPacket *deQueue(Queue *queue);
 
 void freeAll(Queue *queue);
+
+int putQueue(Queue *queue, AVPacket *avPacket, pthread_mutex_t *mutex, pthread_cond_t *cond);
+
+int getQueue(Queue *queue, AVPacket *avPacket);
+
+int cleanQueue(Queue *queue);
 
 #endif

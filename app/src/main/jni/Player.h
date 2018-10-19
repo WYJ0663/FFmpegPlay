@@ -7,6 +7,7 @@
 #include <android/native_window_jni.h>
 
 class Player {
+
 public:
     const char *inputPath;
     FFmpegVideo *ffmpegVideo;
@@ -19,8 +20,18 @@ public:
 
     bool isCutImage = false;
 
+    //同步锁
+    pthread_mutex_t mutex;
+    //条件变量
+    pthread_cond_t cond;
+
 public:
+    Player();
+
+    ~Player();
+
     void setWindowCallback(void (*call)());
+
     void setTotalTimeCallback(void (*call)(int64_t duration));
 
     void init(const char *inputPath);
@@ -43,6 +54,7 @@ public:
 
     void cutImage();
 
+    void checkQueue() ;
+
+    void startQueue() ;
 };
-
-

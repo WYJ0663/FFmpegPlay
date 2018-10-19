@@ -68,3 +68,49 @@ void freeAll(Queue *queue) {
     return;
 }
 
+
+//将packet压入队列,生产者
+int putQueue(Queue *queue, AVPacket *avPacket, pthread_mutex_t *mutex, pthread_cond_t *cond) {
+    LOGE("插入队列")
+    AVPacket *avPacket1 = av_packet_alloc();
+    //克隆
+    if (av_packet_ref(avPacket1, avPacket)) {
+        //克隆失败
+        return 0;
+    }
+    //push的时候需要锁住，有数据的时候再解锁
+    pthread_mutex_lock(mutex);
+    enQueue(queue, avPacket1);//将packet压入队列
+    //压入过后发出消息并且解锁
+    pthread_cond_signal(cond);
+    pthread_mutex_unlock(mutex);
+    return 1;
+}
+
+//将packet弹出队列
+int getQueue(Queue *queue, AVPacket *avPacket) {
+    LOGE("取出队列")
+    //如果队列中有数据可以拿出来
+    AVPacket *ptk = deQueue(queue);
+    if (ptk == NULL) {
+        return 0;
+    }
+    if (av_packet_ref(avPacket, ptk)) {//失败
+        return 0;
+    }
+    //取成功了，弹出队列，销毁packet
+    av_packet_unref(ptk);
+    av_packet_free(&ptk);
+    return 1;
+}
+
+int cleanQueue(Queue *queue) {
+    AVPacket *pkt = deQueue(queue);
+    while (pkt != NULL) {
+        LOGE("销毁帧%d", 1);
+        av_packet_unref(pkt);
+        av_packet_free(&pkt);
+        pkt = deQueue(queue);
+    }
+    return 1;
+}

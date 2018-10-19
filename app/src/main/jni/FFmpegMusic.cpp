@@ -6,7 +6,9 @@
 
 #include "FFmpegMusic.h"
 
-static void (*music_call)(double clock);
+void (*music_call)(double clock);
+
+static void (*parse_call)();
 
 // 设置流的速率
 int getSonicData(FFmpegMusic *music, int size, int nb) {
@@ -168,42 +170,25 @@ void FFmpegMusic::setAvCodecContext(AVCodecContext *avCodecContext) {
 
 //将packet压入队列,生产者
 int FFmpegMusic::put(AVPacket *avPacket) {
-    LOGE("插入队列")
-    AVPacket *avPacket1 = av_packet_alloc();
-    //克隆
-    if (av_packet_ref(avPacket1, avPacket)) {
-        //克隆失败
-        return 0;
-    }
-    //push的时候需要锁住，有数据的时候再解锁
-    pthread_mutex_lock(&mutex);
-    enQueue(queue,avPacket1);//将packet压入队列
-    //压入过后发出消息并且解锁
-    pthread_cond_signal(&cond);
-    pthread_mutex_unlock(&mutex);
-    return 1;
+    return putQueue(queue, avPacket, &mutex, &cond);
 }
 
 //将packet弹出队列
 int FFmpegMusic::get(AVPacket *avPacket) {
-    LOGE("取出队列")
     pthread_mutex_lock(&mutex);
     while (isPlay) {
-        if (queue->size>0 && isPause) {
+        if (queue->size > 0 && isPause) {
             //如果队列中有数据可以拿出来
-            AVPacket *ptk = deQueue(queue);
-            if (av_packet_ref(avPacket, ptk)) {
-                break;
-            }
-            //取成功了，弹出队列，销毁packet
-            av_packet_unref(ptk);
-            av_packet_free(&ptk);
+            getQueue(queue, avPacket);
             break;
         } else {
             pthread_cond_wait(&cond, &mutex);
         }
     }
     pthread_mutex_unlock(&mutex);
+    if (parse_call) {
+        parse_call();
+    }
     return 0;
 }
 
@@ -220,16 +205,9 @@ FFmpegMusic::~FFmpegMusic() {
     if (out_rate_buffer) {
         av_free(out_rate_buffer);
     }
-    AVPacket *pkt = deQueue(queue);
-    while (pkt){
-        LOGE("销毁帧%d",1);
-        av_packet_unref(pkt);
-        av_packet_free(&pkt);
-        pkt = deQueue(queue);
-    }
+
+    cleanQueue(queue);
     freeQueue(queue);
-//    (std::vector<AVPacket *>).swap(queue);
-//    LOGE("帧空间=%d", queue.capacity());
 
     pthread_cond_destroy(&cond);
     pthread_mutex_destroy(&mutex);
@@ -381,5 +359,10 @@ void FFmpegMusic::pause() {
 void FFmpegMusic::setPlayCall(void (*call)(double)) {
     music_call = call;
 }
+
+void FFmpegMusic::setParseCall(void (*call)()) {
+    parse_call = call;
+}
+
 
 

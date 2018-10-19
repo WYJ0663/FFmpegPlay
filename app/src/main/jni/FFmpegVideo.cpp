@@ -6,6 +6,8 @@
 
 static void (*video_call)(AVFrame *frame);
 
+static void (*parse_call)();
+
 void *videoPlay(void *args) {
     FFmpegVideo *ffmpegVideo = (FFmpegVideo *) args;
     //申请AVFrame
@@ -46,7 +48,7 @@ void *videoPlay(void *args) {
     LOGE("解码 ")
     while (ffmpegVideo->isPlay) {
         ffmpegVideo->get(packet);
-        LOGE("解码 %d", packet->stream_index)
+//        LOGE("解码 %d", packet->stream_index)
         // 解码
         avcodec_send_packet(ffmpegVideo->codec, packet);
         if (avcodec_receive_frame(ffmpegVideo->codec, frame) != 0) {
@@ -127,42 +129,23 @@ void FFmpegVideo::setAvCodecContext(AVCodecContext *avCodecContext) {
 }
 
 int FFmpegVideo::put(AVPacket *avPacket) {
-    LOGE("插入队列 video")
-    AVPacket *avPacket1 = av_packet_alloc();
-    //克隆
-    if (av_packet_ref(avPacket1, avPacket)) {
-        //克隆失败
-        return 0;
-    }
-    //push的时候需要锁住，有数据的时候再解锁
-    pthread_mutex_lock(&mutex);
-    enQueue(queue,avPacket1);//将packet压入队列
-    //压入过后发出消息并且解锁
-    pthread_cond_signal(&cond);
-    pthread_mutex_unlock(&mutex);
-    return 1;
+    return putQueue(queue, avPacket, &mutex, &cond);
 }
 
 int FFmpegVideo::get(AVPacket *avPacket) {
-    LOGE("取出队列")
     pthread_mutex_lock(&mutex);
     while (isPlay) {
-        if (queue->size>0 && isPause) {
-            //如果队列中有数据可以拿出来
-            AVPacket *ptk = deQueue(queue);
-            if (av_packet_ref(avPacket, ptk)) {
-                break;
-            }
-            //取成功了，弹出队列，销毁packet
-            av_packet_unref(ptk);
-            av_packet_free(&ptk);
+        if (queue->size > 0 && isPause) {
+            getQueue(queue, avPacket);
             break;
         } else {
             pthread_cond_wait(&cond, &mutex);
         }
     }
-    LOGE("解锁")
     pthread_mutex_unlock(&mutex);
+    if (parse_call) {
+        parse_call();
+    }
     return 0;
 }
 
@@ -179,14 +162,14 @@ void FFmpegVideo::play() {
 
 FFmpegVideo::~FFmpegVideo() {
     AVPacket *pkt = deQueue(queue);
-    while (pkt){
-        LOGE("销毁帧%d",1);
+    while (pkt) {
+        LOGE("销毁帧%d", 1);
         av_packet_unref(pkt);
         av_packet_free(&pkt);
         pkt = deQueue(queue);
     }
+    cleanQueue(queue);
     freeQueue(queue);
-//    (std::vector<AVPacket *>).swap(queue);
 
     pthread_cond_destroy(&cond);
     pthread_mutex_destroy(&mutex);
@@ -246,6 +229,12 @@ void FFmpegVideo::setPlayCall(void (*call)(AVFrame *)) {
     video_call = call;
 }
 
+
+void FFmpegMusic::setParseCall(void (*call)()) {
+    parse_call = call;
+}
+
+
 void FFmpegVideo::pause() {
     LOGE("执行了pause")
     /* if(isPause==1){
@@ -262,3 +251,8 @@ void FFmpegVideo::pause() {
         pthread_cond_signal(&cond);
     }
 }
+
+void FFmpegVideo::setParseCall(void (*call)()) {
+    parse_call = call;
+}
+
