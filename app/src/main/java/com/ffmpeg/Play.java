@@ -10,7 +10,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 
-/**
+/**时间毫秒
  * Created by LC on 2017/11/20.
  */
 
@@ -58,9 +58,9 @@ public class Play implements SurfaceHolder.Callback {
     }
 
     public void play(final String path) {
-        if (surfaceView == null) {
-            return;
-        }
+//        if (surfaceView == null) {
+//            return;
+//        }
 
         mHandler.post(new Runnable() {
             @Override

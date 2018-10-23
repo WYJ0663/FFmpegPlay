@@ -178,22 +178,22 @@ void Player::play() {
     isPlay = true;
     //seekTo(0);
     //解码packet,并压入队列中
-    packet = av_packet_alloc();
+    avPacket = av_packet_alloc();
     //跳转到某一个特定的帧上面播放
     int ret;
     while (isPlay) {
         LOGE("av_read_frame");
-        ret = av_read_frame(pFormatCtx, packet);
+        ret = av_read_frame(pFormatCtx, avPacket);
         if (ret == 0) {
-            if (ffmpegVideo && ffmpegVideo->isPlay && packet->stream_index == ffmpegVideo->index) {
+            if (ffmpegVideo && ffmpegVideo->isPlay && avPacket->stream_index == ffmpegVideo->index) {
                 //将视频packet压入队列
-                ffmpegVideo->put(packet);
+                ffmpegVideo->put(avPacket);
 
                 checkQueue();
 
             } else if (ffmpegMusic && ffmpegMusic->isPlay &&
-                       packet->stream_index == ffmpegMusic->index) {
-                ffmpegMusic->put(packet);
+                       avPacket->stream_index == ffmpegMusic->index) {
+                ffmpegMusic->put(avPacket);
 
                 checkQueue();
             }
@@ -208,8 +208,8 @@ void Player::play() {
                 av_usleep(10000);
             }
         }
-        av_packet_unref(packet);
-        av_init_packet(packet);
+        av_packet_unref(avPacket);
+        av_init_packet(avPacket);
     }
     //解码完过后可能还没有播放完
     isPlay = false;
@@ -220,8 +220,8 @@ void Player::play() {
         ffmpegVideo->stop();
     }
     //释放
-    av_packet_unref(packet);
-    av_packet_free(&packet);
+    av_packet_unref(avPacket);
+    av_packet_free(&avPacket);
     avformat_close_input(&pFormatCtx);
 //    avformat_free_context(pFormatCtx);
     pthread_exit(0);

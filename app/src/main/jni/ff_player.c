@@ -2,36 +2,135 @@
 // Created by yijunwu on 2018/10/19.
 //
 
-
 #include <pthread.h>
 #include <libavutil/time.h>
 #include "ff_player.h"
 #include "log.h"
 #include "ff_audio.h"
+#include "ff_video.h"
+#include "android_jni.h"
+
+void init_param(Player *player);
 
 Player *ffp_create_player() {
     Player *player = av_malloc(sizeof(Player));
-
-    player->video = av_malloc(sizeof(Video));
-    player->audio = av_malloc(sizeof(Audio));
-
-    player->packet = av_packet_alloc();
+    player->avPacket = av_packet_alloc();
+    pthread_mutex_init(&player->mutex, NULL);
+    pthread_cond_init(&player->cond, NULL);
 
     //音频
+    player->audio = av_malloc(sizeof(Audio));
     player->audio->avPacket = av_packet_alloc();
     player->audio->avFrame = av_frame_alloc();
-
     player->audio->queue = createQueue();
-    player->video->queue = createQueue();
-
-    player->audio->clock = 0;
-    //初始化锁
     pthread_mutex_init(&player->audio->mutex, NULL);
     pthread_cond_init(&player->audio->cond, NULL);
+
+    //视频
+    player->video = av_malloc(sizeof(Video));
+    player->video->queue = createQueue();
+    pthread_mutex_init(&player->video->mutex, NULL);
+    pthread_cond_init(&player->video->cond, NULL);
+    player->video->audio = player->audio;
+
+    //Android
+    player->androidJNI = av_malloc(sizeof(AndroidJNI));
+    player->audio->androidJNI = player->androidJNI;
+    player->video->androidJNI = player->androidJNI;
+
+    //状态
+    player->status = av_malloc(sizeof(PlayerStatus));
+    player->audio->status = player->status;
+    player->video->status = player->status;
+
+    //参数初始化
+    init_param(player);
 
     return player;
 }
 
+void init_param(Player *player) {
+    player->isCutImage = false;
+    player->video->clock = 0;
+    player->androidJNI->preClock = 0;
+    player->androidJNI->isSize = false;
+
+    player->status->isPlay = false;
+    player->status->isPause = false;
+
+    player->audio->clock = 0;
+    player->audio->rate = 1;
+    player->audio->isSilence = false;
+
+    player->androidJNI->window = 0;
+
+    player->seekTime = -1;
+}
+
+
+
+void ffp_stop(Player *player) {
+    player->status->isPlay = false;
+    //取消队列等待
+    pthread_mutex_lock(&player->audio->mutex);
+    pthread_cond_signal(&player->audio->cond);
+    pthread_mutex_unlock(&player->audio->mutex);
+
+    pthread_mutex_lock(&player->video->mutex);
+    pthread_cond_signal(&player->video->cond);
+    pthread_mutex_unlock(&player->video->mutex);
+
+//    av_usleep(2000000);
+    pthread_join(player->p_id, 0);
+    pthread_join(player->audio->p_id, 0);
+    pthread_join(player->video->p_id, 0);
+    ffp_free(player);
+}
+
+void ffp_free(Player *player) {
+    LOGE("回收内存");
+    pthread_mutex_destroy(&player->mutex);
+    pthread_cond_destroy(&player->cond);
+
+    av_packet_unref(player->avPacket);
+    av_packet_free(&player->avPacket);
+    avformat_close_input(&player->pFormatCtx);
+
+    av_packet_unref(player->audio->avPacket);
+    av_packet_free(&player->audio->avPacket);
+    av_frame_unref(player->audio->avFrame);
+    av_frame_free(&player->audio->avFrame);
+    pthread_mutex_destroy(&player->audio->mutex);
+    pthread_cond_destroy(&player->audio->cond);
+    cleanQueue(player->audio->queue);
+    freeQueue(player->audio->queue);
+    ffp_audio_free(player->audio);
+    avcodec_free_context(&player->audio->codec);
+
+    pthread_mutex_destroy(&player->video->mutex);
+    pthread_cond_destroy(&player->video->cond);
+    cleanQueue(player->video->queue);
+    freeQueue(player->video->queue);
+    avcodec_free_context(&player->video->codec);;
+
+    if (player->androidJNI->window) {
+        ANativeWindow_release(player->androidJNI->window);
+        player->androidJNI->window = 0;
+    }
+
+    JNIEnv *env;
+    (*player->androidJNI->pJavaVM)->AttachCurrentThread(player->androidJNI->pJavaVM, &env, NULL);
+    (*env)->DeleteGlobalRef(env, player->androidJNI->pInstance);
+    player->androidJNI->pInstance = NULL;
+//    (*player->androidJNI->pJavaVM)->DetachCurrentThread(player->androidJNI->pJavaVM);
+
+    av_free(player->androidJNI);
+    av_free(player->status);
+    av_free(player->audio);
+    av_free(player->video);
+    av_free(player);
+
+}
 
 //
 void ffp_init_ffmpeg(Player *player, char *url) {
@@ -56,8 +155,7 @@ void ffp_init_ffmpeg(Player *player, char *url) {
     //得到播放总时间
     if (player->pFormatCtx->duration != AV_NOPTS_VALUE) {
         player->duration = player->pFormatCtx->duration;//微秒
-        // todo
-//        set_total_time_callback(duration);
+        set_total_time(player);
     }
 
     //找到视频流和音频流
@@ -77,6 +175,8 @@ void ffp_init_ffmpeg(Player *player, char *url) {
             player->video->codec = codecContext;
             player->video->time_base = player->pFormatCtx->streams[i]->time_base;
 
+            init_window(player);
+            change_window_size(player);
             // todo
 //            set_window_buffers_geometry();
         }//如果是音频流
@@ -126,67 +226,93 @@ void *start_play(void *arg) {
     //开启播放
     //seekTo(0);
     //解码packet,并压入队列中
-    AVPacket *packet = player->packet;
+//    AVPacket *packet = player->packet;
     //跳转到某一个特定的帧上面播放
     int ret;
-    while (player->isPlay) {
-
-        ret = av_read_frame(player->pFormatCtx, player->packet);
-        LOGE("av_read_frame %d  %d %d", packet->stream_index, player->audio->index, ret);
+    while (player->status->isPlay) {
+//        seek_to(player);
+        ret = av_read_frame(player->pFormatCtx, player->avPacket);
+        LOGE("av_read_frame %d  %d %d", player->avPacket->stream_index, player->audio->index, ret);
         if (ret == 0) {
-            if (player->video && player->video->isPlay && packet->stream_index == player->video->index) {
+            if (player->avPacket->stream_index == player->video->index) {
                 //将视频packet压入队列
-
-//                checkQueue();
-
-            } else if (packet->stream_index == player->audio->index) {
+                put_video_packet(player->video, player->avPacket);
+            } else if (player->avPacket->stream_index == player->audio->index) {
                 LOGE("put_packet");
-                put_packet(player->audio);
-
+                put_audio_packet(player->audio, player->avPacket);
 //                checkQueue();
             }
         } else if (ret == AVERROR_EOF) {
             // 读完了
             //读取完毕 但是不一定播放完毕
-            while (player->isPlay) {
-//                if (player->audio->queue->size <= 0 && player->audio->queue->size <= 0) {
-//                    break;
-//                }
+            while (player->status->isPlay) {
+                if (player->audio->queue->size <= 0 && player->audio->queue->size <= 0) {
+                    break;
+                }
                 // LOGE("等待播放完成");
                 av_usleep(10000);
             }
         }
-        av_packet_unref(packet);
-        av_init_packet(packet);
+        av_packet_unref(player->avPacket);
     }
-    //解码完过后可能还没有播放完
+    (*player->androidJNI->pJavaVM)->DetachCurrentThread(player->androidJNI->pJavaVM);
 
-//    if (ffmpegMusic && ffmpegMusic->isPlay) {
-//        ffmpegMusic->stop();
-//    }
-//    if (ffmpegVideo && ffmpegVideo->isPlay) {
-//        ffmpegVideo->stop();
-//    }
-    //释放
-
-//    avformat_close_input(&pFormatCtx);
-//    avformat_free_context(pFormatCtx);
+    LOGE("退出线程 mian")
+    pthread_exit(0);
 }
 
 
 void ffp_play(Player *player) {
-    player->isPlay = true;
-    player->audio->isPlay = true;
-    player->video->isPlay = true;
+    player->status->isPlay = true;
     pthread_create(&player->p_id, NULL, start_play, player);
-
-    pthread_create(&player->audio->p_id, NULL, ffp_start_audio_play, player->audio);
+    pthread_create(&player->audio->p_id, NULL, ffp_start_audio_play, player);
+    pthread_create(&player->video->p_id, NULL, ffp_start_video_play, player);
 }
 
-void ffp_stop(Player *player) {
-    player->isPlay = false;
-    av_packet_unref(player->packet);
-    av_packet_free(&player->packet);
-    avformat_close_input(&player->pFormatCtx);
-//    avformat_free_context(pFormatCtx);
+void seek_to(Player *player) {
+    LOGE("切进度 %d", player->seekTime)
+    if (player->seekTime < 0) {
+        return;
+    }
+
+    //清空vector
+//    seekCleanQueue(ffmpegMusic->queue, &ffmpegMusic->mutex, &ffmpegMusic->cond);
+//    seekCleanQueue(ffmpegVideo->queue, &ffmpegVideo->mutex, &ffmpegVideo->cond);
+
+//    Queue *queue1 = ffmpegMusic->queue;//销毁
+//    Queue *queue2 = ffmpegMusic->queue;
+    player->audio->queue = createQueue();
+    player->video->queue = createQueue();
+
+//    Queue *queue1;
+//    Queue *queue2;
+//    pthread_mutex_lock(&ffmpegMusic->mutex);
+//    queue1 = ffmpegMusic->queue;
+//    ffmpegMusic->queue = createQueue();
+//    pthread_mutex_unlock(&ffmpegMusic->mutex);
+//
+//    pthread_mutex_lock(&ffmpegVideo->mutex);
+//    queue2 = ffmpegVideo->queue;
+//    ffmpegVideo->queue = createQueue();
+//    LOGE("queue size %d", queue2->size);
+//    pthread_mutex_unlock(&ffmpegVideo->mutex);
+
+    LOGE("av_seek_frame %d",  (int)(player->seekTime / av_q2d(player->video->time_base)));
+    av_seek_frame(player->pFormatCtx, player->video->index,
+                  (int64_t) (player->seekTime / av_q2d(player->video->time_base)),
+                  AVSEEK_FLAG_FRAME);
+    av_seek_frame(player->pFormatCtx, player->audio->index,
+                  (int64_t) (player->seekTime / av_q2d(player->audio->time_base)),
+                  AVSEEK_FLAG_FRAME);
+
+    player->seekTime = -1;
+//    startQueue();
+//
+//    pthread_t p_tid1;
+//    pthread_t p_tid2;
+//    LOGE("2 queue size %d", queue2->size);
+//    pthread_create(&p_tid1, NULL, freeQ, queue1);
+//    int rc = pthread_create(&p_tid2, NULL, freeQ, queue2);
+//    LOGE("ERROR; return code is %d\n", rc);
+
 }

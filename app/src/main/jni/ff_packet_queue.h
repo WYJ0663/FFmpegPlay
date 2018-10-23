@@ -33,7 +33,6 @@ void enQueue(Queue *queue, AVPacket *data);
 //出队
 AVPacket *deQueue(Queue *queue);
 
-void freeAll(Queue *queue);
 
 int putQueue(Queue *queue, AVPacket *avPacket, pthread_mutex_t *mutex, pthread_cond_t *cond);
 

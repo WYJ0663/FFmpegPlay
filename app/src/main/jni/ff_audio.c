@@ -4,15 +4,53 @@
 #include <pthread.h>
 #include "ff_audio.h"
 #include "log.h"
+#include "android_jni.h"
 
-//void get_packet(Queue *pLinkedlist, AVPacket *pPacket);
+
+void ffp_audio_free(Audio *audio) {
+    if (audio->out_buffer) {
+        av_free(audio->out_buffer);
+    }
+    if (audio->out_rate_buffer) {
+        av_free(audio->out_rate_buffer);
+    }
+
+    if (audio->bqPlayerPlay) {
+        (*audio->bqPlayerPlay)->SetPlayState(audio->bqPlayerPlay, SL_PLAYSTATE_STOPPED);
+        audio->bqPlayerPlay = 0;
+    }
+    if (audio->bqPlayerObject) {
+        (*audio->bqPlayerObject)->Destroy(audio->bqPlayerObject);
+        audio->bqPlayerObject = 0;
+
+        audio->bqPlayerBufferQueue = 0;
+        audio->bqPlayerVolume = 0;
+    }
+
+    if (audio->outputMixObject) {
+        (*audio->outputMixObject)->Destroy(audio->outputMixObject);
+        audio->outputMixObject = 0;
+    }
+
+    if (audio->engineObject) {
+        (*audio->engineObject)->Destroy(audio->engineObject);
+        audio->engineObject = 0;
+        audio->engineEngine = 0;
+    }
+    if (audio->swrContext) {
+        swr_free(&audio->swrContext);
+    }
+    if (audio->sonic) {
+        sonicDestroyStream(audio->sonic);
+    }
+}
 
 void set_silence_frame(AVFrame *frame) {
     av_samples_set_silence(frame->data, 0, frame->nb_samples, frame->channels, (enum AVSampleFormat) frame->format);
 }
 
 // 设置流的速率
-int getSonicData(Audio *audio, int size, int nb) {
+int getSonicData(Audio *audio, int nb) {
     //参数为采样率和声道数
     sonicSetSpeed(audio->sonic, 1);
     sonicSetRate(audio->sonic, audio->rate);
@@ -27,20 +65,19 @@ int getSonicData(Audio *audio, int size, int nb) {
         new_buffer_size = sonicReadShortFromStream(audio->sonic, audio->out_rate_buffer, 44100 * 2);
         return new_buffer_size;
     }
-
     return 0;
 }
 
-
-void get_packet(Audio *audio) {
+void get_audio_packet(Audio *audio) {
     LOGE("拿包  %d ", audio->queue->size);
     pthread_mutex_lock(&audio->mutex);
-    while (audio->isPlay == true) {
-        if (audio->queue->size > 0) {
+    while (audio->status->isPlay == true) {
+        if (audio->queue->size > 0 && !audio->status->isPause) {
             //如果队列中有数据可以拿出来
-            if (getQueue(audio->queue, audio->avPacket)!=0){
-                break;
+            if (getQueue(audio->queue, audio->avPacket) == 0) {
+                LOGE("没有拿包  ");
             }
+            break;
         } else {
             pthread_cond_wait(&audio->cond, &audio->mutex);
         }
@@ -49,53 +86,55 @@ void get_packet(Audio *audio) {
 }
 
 
-void put_packet(Audio *audio) {
+void put_audio_packet(Audio *audio, AVPacket *avPacket) {
     LOGE("包  %d ", audio->queue->size);
-    putQueue(audio->queue, audio->avPacket, &audio->mutex, &audio->cond);
+    putQueue(audio->queue, avPacket, &audio->mutex, &audio->cond);
 }
 
 //得到pcm数据
 int get_pcm(Audio *audio) {
-    AVPacket *avPacket = audio->avPacket;
-    AVFrame *avFrame = audio->avFrame;
+//    AVPacket *avPacket = audio->avPacket;
+//    AVFrame *avFrame = audio->avFrame;
     int size;
     LOGE("准备解码");
-    while (audio->isPlay) {
+    while (audio->status->isPlay) {
         size = 0;
-        get_packet(audio);
+        get_audio_packet(audio);
         //时间矫正
-        if (avPacket->pts != AV_NOPTS_VALUE) {
-            audio->clock = av_q2d(audio->time_base) * avPacket->pts;
+        if (audio->avPacket->pts != AV_NOPTS_VALUE) {
+            audio->clock = av_q2d(audio->time_base) * audio->avPacket->pts;
         }
         LOGE("解码");
-        avcodec_send_packet(audio->codec, avPacket);
-        if (avcodec_receive_frame(audio->codec, avFrame) != 0) {
+        if (audio->codec == NULL) {
+            LOGE("没有解码器");
+        }
+
+        avcodec_send_packet(audio->codec, audio->avPacket);
+        if (avcodec_receive_frame(audio->codec, audio->avFrame) != 0) {
+            LOGE("解码失败");
             continue;
         }
-//        avcodec_decode_audio4(agrs->codec, avFrame, &gotframe, avPacket);
 
-//        if (audio->isSilence) {
-//            set_silence_frame(avFrame);
-//        }
+        if (audio->isSilence) {
+            set_silence_frame(audio->avFrame);
+        }
 
         int nb = swr_convert(audio->swrContext, &audio->out_buffer, 44100 * 2,
-                             (const uint8_t **) avFrame->data, avFrame->nb_samples);
+                             (const uint8_t **) audio->avFrame->data, audio->avFrame->nb_samples);
 
         size = av_samples_get_buffer_size(NULL, audio->out_channer_nb, nb, AV_SAMPLE_FMT_S16, 1);
 //            int len = nb * agrs->out_channer_nb * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
-        LOGE("getPcm nb=%d,size=%d,out_channer_nb=%d,len=%d", nb, size, audio->out_channer_nb);
+        LOGE("getPcm nb=%d,size=%d,out_channer_nb=%d", nb, size, audio->out_channer_nb);
 
-//        if (audio->rate != 1) {
-//            nb = getSonicData(audio, size, nb);
-//            size = av_samples_get_buffer_size(NULL, audio->out_channer_nb, nb, AV_SAMPLE_FMT_S16, 1);
-//        }
+        if (audio->rate != 1) {
+            nb = getSonicData(audio, nb);
+            size = av_samples_get_buffer_size(NULL, audio->out_channer_nb, nb, AV_SAMPLE_FMT_S16, 1);
+        }
         break;
     }
 
-    av_packet_unref(avPacket);
-//    av_packet_free(&avPacket);
-    av_frame_unref(avFrame);
-//    av_frame_free(&avFrame);
+    av_packet_unref(audio->avPacket);
+    av_frame_unref(audio->avFrame);
 
     return size;
 }
@@ -113,23 +152,28 @@ void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
 
         audio->clock = time + audio->clock;
         LOGE("%d 当前一帧声音时间%f   播放时间%f", datasize, time, audio->clock);
-        //todo
-//        if (music_call) {
-//            music_call(music->clock);
-//        }
+        set_current_time(audio, audio->clock);
+
         if (audio->rate == 1) {
             (*bq)->Enqueue(bq, audio->out_buffer, datasize);
         } else {
             (*bq)->Enqueue(bq, audio->out_rate_buffer, datasize);
         }
-//        LOGE("播放 %d ", music->queue.size());
+    }
+
+    if (!audio->status->isPlay) {
+        LOGE("退出线程 audio")
+        (*audio->androidJNI->pJavaVM)->DetachCurrentThread(audio->androidJNI->pJavaVM);
     }
 }
 
 
-void *ffp_start_audio_play(void *arg) {
-    Audio *audio = (Audio *) arg;
+void *ffp_start_audio_play(void *args) {
+    Player *player = (Player *) args;
+    Audio *audio = player->audio;
     bqPlayerCallback(audio->bqPlayerBufferQueue, audio);
+
+    return 0;
 }
 
 

@@ -12,14 +12,17 @@
 #include <SLES/OpenSLES_Android.h>
 #include <android/native_window.h>
 
-#include "ff_packet_queuel.h"
+#include "ff_packet_queue.h"
 #include "ff_player.h"
 #include "ff_player_def.h"
 
 bool create_openelse(Audio *audio);
 
-void put_packet(Audio *audio);
+void put_audio_packet(Audio *audio, AVPacket *avPacket);
 
 void *ffp_start_audio_play (void *arg);
+
+void ffp_audio_free(Audio *audio);
+
 #endif
 

@@ -4,7 +4,7 @@
 
 #include <libavcodec/avcodec.h>
 #include <pthread.h>
-#include "ff_packet_queuel.h"
+#include "ff_packet_queue.h"
 #include "log.h"
 
 //初始化队列
@@ -45,6 +45,7 @@ void enQueue(Queue *queue, AVPacket *data) {
 
 //出队
 AVPacket *deQueue(Queue *queue) {
+    LOGE("deQueue  %d", queue->size);
     AVPacket *data;
     if (queue->head == NULL) {//空队列
         data = NULL;
@@ -52,21 +53,19 @@ AVPacket *deQueue(Queue *queue) {
         Node *head = queue->head;
         data = head->data;
         queue->head = NULL;
+        queue->tail = NULL;
         free(head);
     } else {//多个
         Node *head = queue->head;
         data = head->data;
         queue->head = head->next;
+        if (queue->head == queue->tail) {
+            queue->tail = NULL;
+        }
         free(head);
     }
     queue->size--;
     return data;
-}
-
-void freeAll(Queue *queue) {
-    while (deQueue(queue) != NULL);
-    freeQueue(queue);
-    return;
 }
 
 
@@ -79,9 +78,9 @@ int putQueue(Queue *queue, AVPacket *avPacket, pthread_mutex_t *mutex, pthread_c
         //克隆失败
         return 0;
     }
-    LOGE("插入队列 %d ",queue->size);
-    //push的时候需要锁住，有数据的时候再解锁
     pthread_mutex_lock(mutex);
+    LOGE("插入队列 %d ", queue->size);
+    //push的时候需要锁住，有数据的时候再解锁
     enQueue(queue, avPacket1);//将packet压入队列
     //压入过后发出消息并且解锁
     pthread_cond_signal(cond);
@@ -95,9 +94,10 @@ int getQueue(Queue *queue, AVPacket *avPacket) {
     //如果队列中有数据可以拿出来
     AVPacket *ptk = deQueue(queue);
     if (ptk == NULL) {
+        LOGE("取出队列失败")
         return 0;
     }
-    if (av_packet_ref(avPacket, ptk)!=0) {//失败
+    if (av_packet_ref(avPacket, ptk) != 0) {//失败
         return 0;
     }
     //取成功了，弹出队列，销毁packet

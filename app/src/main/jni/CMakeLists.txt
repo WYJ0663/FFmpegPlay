@@ -20,18 +20,13 @@ add_library( # Sets the name of the library.
 
         sonic/sonic.c
 
-#        old/FFmpegMusic.cpp
-#        old/FFmpegVideo.cpp
-#        old/Player.cpp
-#        player_jni.cpp
-#        old/AVPacketQueueUtil.c
-
         ff_player.c
-        ff_packet_queuel.c
+        ff_packet_queue.c
         ff_audio.c
+        ff_video.c
         player_jni.c
+        android_jni.c
         )
-
 
 add_library(libavcodec SHARED IMPORTED)
 set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libavcodec.so)
@@ -85,8 +80,8 @@ target_link_libraries( # Specifies the target library.
         libswresample
         libswscale
 
-#        leaktracer
-#        libsoundtouch
+        #        leaktracer
+        #        libsoundtouch
         # Links the target library to the log library
         # included in the NDK.
         ${log-lib}

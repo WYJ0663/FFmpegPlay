@@ -12,7 +12,7 @@
 #include <SLES/OpenSLES_Android.h>
 #include <android/native_window.h>
 
-#include "ff_packet_queuel.h"
+#include "ff_packet_queue.h"
 #include "sonic/sonic.h"
 
 #define bool int
@@ -20,20 +20,21 @@
 #define true 1
 
 typedef struct Player Player;
+typedef struct AndroidJNI AndroidJNI;
 typedef struct Video Video;
 typedef struct Audio Audio;
+typedef struct PlayerStatus PlayerStatus;
 
 struct Player {
-    const char *inputPath;
+    char *inputPath;
     pthread_t p_id;
 
     Video *video;
     Audio *audio;
 
-    bool isPlay;
     int64_t duration;
     AVFormatContext *pFormatCtx;
-    AVPacket *packet;
+    AVPacket *avPacket;
 
     bool isCutImage;
 
@@ -42,6 +43,19 @@ struct Player {
     //条件变量
     pthread_cond_t cond;
 
+    AndroidJNI *androidJNI;
+
+    PlayerStatus *status;
+
+    int seekTime;//秒
+};
+
+struct PlayerStatus{
+    bool isPlay;
+    bool isPause;//是否暂停
+};
+
+struct AndroidJNI{
     //Android
     JavaVM *pJavaVM;
     jobject pInstance;
@@ -51,11 +65,8 @@ struct Player {
     ANativeWindow *window;
 };
 
-
 struct Video {
     int index;//流索引
-    bool isPlay;//是否正在播放
-    bool isPause;//是否暂停
     pthread_t p_id;//处理线程
     Queue *queue;//队列
 
@@ -71,13 +82,16 @@ struct Video {
 
     AVRational time_base;
     double clock; //当前播放的时间
+
+//    AVPacket *avPacket;
+    AndroidJNI *androidJNI;
+
+    PlayerStatus *status;
 };
 
 
 struct Audio {
     int index;//流索引
-    bool isPlay;//是否正在播放
-    bool isPause;
 
     bool isSilence;//静音
 
@@ -116,6 +130,10 @@ struct Audio {
     float rate;
     sonicStream sonic;
     short *out_rate_buffer;
+
+    AndroidJNI *androidJNI;
+
+    PlayerStatus *status;
 };
 
 //

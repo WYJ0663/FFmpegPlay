@@ -16,7 +16,7 @@ public:
     bool isPlay;
     int64_t duration;
     AVFormatContext *pFormatCtx;
-    AVPacket *packet;
+    AVPacket *avPacket;
 
     bool isCutImage = false;
 

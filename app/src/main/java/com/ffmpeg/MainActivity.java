@@ -102,24 +102,36 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
 //    public static final String url = Environment.getExternalStorageDirectory().getPath() + "/test.yuv";
 
     public void player(View view) {
+        mPlayer = new Play();
+        mPlayer.setOnPlayCallback(this);
+        mPlayer.display(surfaceView.getHolder().getSurface());
         mPlayer.play(url);
     }
 
     public static final String url2 = Environment.getExternalStorageDirectory().getPath() + "/test2.mp4";
 
     public void player2(View view) {
+        mPlayer = new Play();
+        mPlayer.setOnPlayCallback(this);
+        mPlayer.display(surfaceView.getHolder().getSurface());
         mPlayer.play(url2);
     }
 
     public static final String url3 = "http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4";
 
     public void player3(View view) {
+        mPlayer = new Play();
+        mPlayer.setOnPlayCallback(this);
+        mPlayer.display(surfaceView.getHolder().getSurface());
         mPlayer.play(url3);
     }
 
     public static final String url4 = Environment.getExternalStorageDirectory().getPath() + "/test4.mp4";
 
     public void player4(View view) {
+        mPlayer = new Play();
+        mPlayer.setOnPlayCallback(this);
+        mPlayer.display(surfaceView.getHolder().getSurface());
         mPlayer.play(url4);
     }
 
