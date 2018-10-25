@@ -162,3 +162,31 @@ void *ffp_start_video_play(void *args) {
     pthread_exit(0);
 }
 
+void convertNv12ToRgb(unsigned char *rgbout, unsigned char *pdata,int DataWidth,int DataHeight)
+{
+    unsigned long  idx=0;
+    unsigned char *ybase,*ubase;
+    unsigned char y,u,v;
+    ybase = pdata; //获取Y平面地址
+    ubase = pdata+DataWidth * DataHeight; //获取U平面地址，由于NV12中U、V是交错存储在一个平民的，v是u+1
+    for(int j=0;j<DataHeight;j++)
+    {
+        idx=(DataHeight-j-1)*DataWidth*3;//该值保证所生成的rgb数据逆序存放在rgbbuf中,位图是底朝上的
+        for(int i=0;i<DataWidth;i++)
+        {
+            unsigned char r,g,b;
+            y=ybase[i + j  * DataWidth];//一个像素对应一个y
+            u=ubase[j/2 * DataWidth+(i/2)*2];// 每四个y对应一个uv
+            v=ubase[j/2 * DataWidth+(i/2)*2+1];  //一定要注意是u+1
+
+            b=(unsigned char)(y+1.779*(u- 128));
+            g=(unsigned char)(y-0.7169*(v - 128)-0.3455*(u - 128));
+            r=(unsigned char)(y+ 1.4075*(v - 128));
+
+            rgbout[idx++]=b;
+            rgbout[idx++]=g;
+            rgbout[idx++]=r;
+        }
+    }
+}
+
