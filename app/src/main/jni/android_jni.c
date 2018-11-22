@@ -18,11 +18,14 @@ Player *get_player(JNIEnv const *env, const void *instance) {
 
 
 void init_window(Player *player) {
-    if (player && player->androidJNI && player->video && player->androidJNI->window && player->video->codec) {
+    LOGE("surfaceChanged init_window player %d %d %d %d", player, player->video, player->androidJNI->window,
+         player->video->height);
+    if (player && player->video && player->androidJNI->window && player->video->width > 0) {
         ANativeWindow_setBuffersGeometry(player->androidJNI->window,
-                                         player->video->codec->width,
-                                         player->video->codec->height,
+                                         player->video->width,
+                                         player->video->height,
                                          WINDOW_FORMAT_RGBA_8888);
+        LOGE("surfaceChanged init_window");
     }
 }
 
@@ -166,8 +169,8 @@ void set_current_image(Player *player, AVFrame *frame) {
 //    (*pJavaVM)->DetachCurrentThread(pJavaVM);
 }
 
-void cut_image(Player *player){
-    if (!player){
+void cut_image(Player *player) {
+    if (!player) {
         return;
     }
 
@@ -176,13 +179,8 @@ void cut_image(Player *player){
 }
 
 void call_video_play(Player *player, AVFrame *frame) {
-    JavaVM *pJavaVM = player->androidJNI->pJavaVM;
-    jobject pInstance = player->androidJNI->pInstance;
     ANativeWindow *window = player->androidJNI->window;
 
-    if (NULL == pJavaVM || NULL == pInstance) {
-        return;
-    }
     if (!window) {
         return;
     }
@@ -200,11 +198,10 @@ void call_video_play(Player *player, AVFrame *frame) {
     uint8_t *src = frame->data[0];
     int srcStride = frame->linesize[0];
     for (int i = 0; i < window_buffer.height; ++i) {
-//        LOGE("call_video_play i=%d", i)
+        LOGE("call_video_play i=%d", i)
         memcpy(dst + i * dstStride, src + i * srcStride, srcStride);
     }
     ANativeWindow_unlockAndPost(window);
-//    (*pJavaVM)->DetachCurrentThread(pJavaVM);
 }
 
 

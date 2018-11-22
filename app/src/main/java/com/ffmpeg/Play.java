@@ -10,7 +10,8 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 
-/**时间毫秒
+/**
+ * 时间毫秒
  * Created by LC on 2017/11/20.
  */
 
@@ -29,7 +30,6 @@ public class Play implements SurfaceHolder.Callback {
             System.loadLibrary("native-lib");
             isload = true;
         }
-
     }
 
     private long mNativePlayer;
@@ -71,6 +71,9 @@ public class Play implements SurfaceHolder.Callback {
     }
 
     public void display(final Surface surface) {
+        if (surface == null) {
+            return;
+        }
         mHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -162,7 +165,8 @@ public class Play implements SurfaceHolder.Callback {
 
     @Override
     public void surfaceChanged(SurfaceHolder surfaceHolder, int format, int width, int height) {
-//        display(surfaceHolder.getSurface());
+        display(surfaceHolder.getSurface());
+        Log.e("yijun", "surfaceChanged");
     }
 
     @Override

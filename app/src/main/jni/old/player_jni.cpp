@@ -249,7 +249,7 @@ class MemoryTest {
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_ffmpeg_Play__1play(JNIEnv *env, jobject instance, jstring inputPath_) {
+Java_com_ffmpeg_Play__1play(JNIEnv *env, jobject instance, jstring inputPath_, long nativePlayer) {
 
     stop(env);
 

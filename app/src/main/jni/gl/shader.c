@@ -184,7 +184,7 @@ void Render(uint8_t *pixel) {
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, global_context.width,
                  global_context.height, 0, GL_RGB,
-                 GL_UNSIGNED_BYTE , pixel);
+                 GL_UNSIGNED_BYTE, pixel);
 //GL_UNSIGNED_SHORT_5_6_5
 
     // Retrieve uniform locations for the shader program.
@@ -201,7 +201,8 @@ void Render(uint8_t *pixel) {
     // Order of coordinates: X, Y, S, T
     // Triangle Fan
     GLfloat VERTEX_DATA[] = {0.0f, 0.0f, 0.5f, 0.5f, -1.0f, -1.0f, 0.0f, 1.0f,
-                             1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+                             1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f,
+                             -1.0f, 1.0f, 0.0f,
                              0.0f, -1.0f, -1.0f, 0.0f, 1.0f};
 
     glVertexAttribPointer(aPositionLocation, POSITION_COMPONENT_COUNT, GL_FLOAT,

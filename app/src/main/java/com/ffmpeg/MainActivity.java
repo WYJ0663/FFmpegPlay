@@ -1,11 +1,8 @@
 package com.ffmpeg;
 
-import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.SurfaceView;
@@ -15,7 +12,6 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import com.example.ffmpeg.R;
 
-import java.io.File;
 import java.text.SimpleDateFormat;
 
 public class MainActivity extends AppCompatActivity implements Play.OnPlayCallback {
@@ -39,10 +35,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
 
         initView();
 
-        mPlayer = new Play();
-        mPlayer.setOnPlayCallback(this);
-        mPlayer.setSurfaceView(surfaceView);
-        mInfoView.setText(mPlayer._configuration());
+//        mInfoView.setText(mPlayer._configuration());
     }
 
     private void initView() {
@@ -105,6 +98,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
         mPlayer = new Play();
         mPlayer.setOnPlayCallback(this);
         mPlayer.display(surfaceView.getHolder().getSurface());
+        mPlayer.setSurfaceView(surfaceView);
         mPlayer.play(url);
     }
 
@@ -113,7 +107,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
     public void player2(View view) {
         mPlayer = new Play();
         mPlayer.setOnPlayCallback(this);
-        mPlayer.display(surfaceView.getHolder().getSurface());
+        mPlayer.setSurfaceView(surfaceView);
         mPlayer.play(url2);
     }
 
@@ -122,7 +116,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
     public void player3(View view) {
         mPlayer = new Play();
         mPlayer.setOnPlayCallback(this);
-        mPlayer.display(surfaceView.getHolder().getSurface());
+        mPlayer.setSurfaceView(surfaceView);
         mPlayer.play(url3);
     }
 
@@ -131,6 +125,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
     public void player4(View view) {
         mPlayer = new Play();
         mPlayer.setOnPlayCallback(this);
+        mPlayer.setSurfaceView(surfaceView);
         mPlayer.display(surfaceView.getHolder().getSurface());
         mPlayer.play(url4);
     }

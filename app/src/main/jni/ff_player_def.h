@@ -70,6 +70,9 @@ struct Video {
     pthread_t p_id;//处理线程
     Queue *queue;//队列
 
+    int width;
+    int height;
+
     AVCodecContext *codec;//解码器上下文
 
     struct SwsContext *swsContext;

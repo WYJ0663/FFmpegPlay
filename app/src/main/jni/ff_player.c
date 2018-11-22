@@ -28,6 +28,8 @@ Player *ffp_create_player() {
 
     //视频
     player->video = av_malloc(sizeof(Video));
+    player->video->width = 0;
+    player->video->height = 0;
     player->video->queue = createQueue();
     pthread_mutex_init(&player->video->mutex, NULL);
     pthread_cond_init(&player->video->cond, NULL);
@@ -66,7 +68,6 @@ void init_param(Player *player) {
 
     player->seekTime = -1;
 }
-
 
 
 void ffp_stop(Player *player) {
@@ -174,7 +175,8 @@ void ffp_init_ffmpeg(Player *player, char *url) {
             player->video->index = i;
             player->video->codec = codecContext;
             player->video->time_base = player->pFormatCtx->streams[i]->time_base;
-
+            player->video->width = codecContext->width;
+            player->video->height = codecContext->height;
             init_window(player);
             change_window_size(player);
             // todo
@@ -297,7 +299,7 @@ void seek_to(Player *player) {
 //    LOGE("queue size %d", queue2->size);
 //    pthread_mutex_unlock(&ffmpegVideo->mutex);
 
-    LOGE("av_seek_frame %d",  (int)(player->seekTime / av_q2d(player->video->time_base)));
+    LOGE("av_seek_frame %d", (int) (player->seekTime / av_q2d(player->video->time_base)));
     av_seek_frame(player->pFormatCtx, player->video->index,
                   (int64_t) (player->seekTime / av_q2d(player->video->time_base)),
                   AVSEEK_FLAG_FRAME);
