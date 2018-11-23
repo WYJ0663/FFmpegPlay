@@ -200,10 +200,14 @@ void Render(uint8_t *pixel) {
 
     // Order of coordinates: X, Y, S, T
     // Triangle Fan
-    GLfloat VERTEX_DATA[] = {0.0f, 0.0f, 0.5f, 0.5f, -1.0f, -1.0f, 0.0f, 1.0f,
-                             1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f,
-                             -1.0f, 1.0f, 0.0f,
-                             0.0f, -1.0f, -1.0f, 0.0f, 1.0f};
+    GLfloat VERTEX_DATA[] = {0.0f, 0.0f, 0.5f,
+                             0.5f, -1.0f, -1.0f,
+                             0.0f, 1.0f, 1.0f,
+                             -1.0f, 1.0f, 1.0f,
+                             1.0f, 1.0f, 1.0f,
+                             0.0f, -1.0f, 1.0f,
+                             0.0f, 0.0f, -1.0f,
+                             -1.0f, 0.0f, 1.0f};
 
     glVertexAttribPointer(aPositionLocation, POSITION_COMPONENT_COUNT, GL_FLOAT,
                           false, STRIDE, VERTEX_DATA);
@@ -293,7 +297,7 @@ int eglOpen() {
             EGL_NONE
     };
 
-    success = eglChooseConfig(eglDisplay, configAttribs, &config, 1,
+    success = eglChooseConfig(eglDisplay, CONFIG_ATTRIBS, &config, 1,
                               &numConfigs);
     if (!success) {
         LOGV(" eglChooseConfig failure.");
