@@ -39,7 +39,7 @@ Java_com_ffmpeg_Play__1display(JNIEnv *env, jobject instance, jobject surface) {
     }
 
     player->androidJNI->window = ANativeWindow_fromSurface(env, surface);
-    init_window(player);
+//    init_window(player);
 }
 
 JNIEXPORT void JNICALL

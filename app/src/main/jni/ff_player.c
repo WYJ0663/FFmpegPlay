@@ -45,6 +45,10 @@ Player *ffp_create_player() {
     player->audio->status = player->status;
     player->video->status = player->status;
 
+    //opengles、egl
+    player->eglContexts = av_malloc(sizeof(EGLContexts));
+    player->glesContexts = av_malloc(sizeof(GLESContexts));
+
     //参数初始化
     init_param(player);
 
@@ -67,6 +71,14 @@ void init_param(Player *player) {
     player->androidJNI->window = 0;
 
     player->seekTime = -1;
+
+    player->eglContexts->eglDisplay = 0;
+    player->eglContexts->eglSurface = 0;
+    player->eglContexts->eglContext = 0;
+    player->eglContexts->eglFormat = 0;//颜色格式
+    player->eglContexts->config = 0;
+    player->glesContexts->mTextureID = 0;
+    player->glesContexts->program = 0;
 }
 
 
@@ -85,7 +97,9 @@ void ffp_stop(Player *player) {
     pthread_join(player->p_id, 0);
     pthread_join(player->audio->p_id, 0);
     pthread_join(player->video->p_id, 0);
+
     ffp_free(player);
+
 }
 
 void ffp_free(Player *player) {
@@ -124,6 +138,9 @@ void ffp_free(Player *player) {
     (*env)->DeleteGlobalRef(env, player->androidJNI->pInstance);
     player->androidJNI->pInstance = NULL;
 //    (*player->androidJNI->pJavaVM)->DetachCurrentThread(player->androidJNI->pJavaVM);
+
+    glesDestroye(player->video->width, player->video->height);
+    eglDestroye(player->eglContexts);
 
     av_free(player->androidJNI);
     av_free(player->status);
@@ -177,7 +194,7 @@ void ffp_init_ffmpeg(Player *player, char *url) {
             player->video->time_base = player->pFormatCtx->streams[i]->time_base;
             player->video->width = codecContext->width;
             player->video->height = codecContext->height;
-            init_window(player);
+//            init_window(player);
             change_window_size(player);
             // todo
 //            set_window_buffers_geometry();
