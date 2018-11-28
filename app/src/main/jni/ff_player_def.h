@@ -14,6 +14,8 @@
 
 #include "ff_packet_queue.h"
 #include "sonic/sonic.h"
+#include "gles2/egl.h"
+#include "gles_draw.h"
 
 #define bool int
 #define false 0
@@ -48,14 +50,17 @@ struct Player {
     PlayerStatus *status;
 
     int seekTime;//秒
+
+    EGLContexts *eglContexts;
+    GLESContexts *glesContexts;
 };
 
-struct PlayerStatus{
+struct PlayerStatus {
     bool isPlay;
     bool isPause;//是否暂停
 };
 
-struct AndroidJNI{
+struct AndroidJNI {
     //Android
     JavaVM *pJavaVM;
     jobject pInstance;
@@ -139,5 +144,4 @@ struct Audio {
     PlayerStatus *status;
 };
 
-//
-#endif
+#endif //FF_PLAYER_DEF_H
