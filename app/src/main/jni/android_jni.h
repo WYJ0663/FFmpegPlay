@@ -11,8 +11,6 @@ Player *get_player(JNIEnv const *env, const void *instance);
 
 void init_window(Player *player);
 
-void init_window2(Player *player,int32_t format);
-
 void change_window_size(Player *player);
 
 void set_total_time(Player *player);

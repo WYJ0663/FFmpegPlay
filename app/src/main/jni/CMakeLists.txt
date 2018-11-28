@@ -26,11 +26,6 @@ add_library( # Sets the name of the library.
         ff_video.c
         player_jni.c
         android_jni.c
-
-        gles_draw.c
-        gles2/egl.c
-        gles2/gles.c
-#        gles2/matrix.c
         )
 
 add_library(libavcodec SHARED IMPORTED)
@@ -92,6 +87,4 @@ target_link_libraries( # Specifies the target library.
         ${log-lib}
         android
         OpenSLES
-        EGL
-        GLESv2
         )

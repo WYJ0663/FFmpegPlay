@@ -3,7 +3,6 @@
 //
 #include "ff_video.h"
 #include "android_jni.h"
-#include "gles2/egl.h"
 
 void get_video_packet(Video *video, AVPacket *avPacket) {
     LOGE("拿包  %d ", video->queue->size);
@@ -54,31 +53,25 @@ double synchronize(Video *video, AVFrame *frame, double play) {
 void *ffp_start_video_play(void *args) {
     Player *player = (Player *) args;
     Video *video = player->video;
-    //初始化屏幕
-    eglOpen(player->eglContexts);
-    init_window2(player, player->eglContexts->eglFormat);
-    eglLinkWindow(player->eglContexts, player->androidJNI->window);
-    glesInit(player->glesContexts, video->codec->width, video->codec->height);
-
     //申请AVFrame
     AVFrame *frame = av_frame_alloc();//分配一个AVFrame结构体,AVFrame结构体一般用于存储原始数据，指向解码后的原始帧
     AVFrame *rgb_frame = av_frame_alloc();//分配一个AVFrame结构体，指向存放转换成rgb后的帧
     AVPacket *packet = av_packet_alloc();
 
-    //创建格式转器
-    enum AVPixelFormat format = AV_PIX_FMT_RGB24;//
     //缓存区
-    uint8_t *out_buffer = (uint8_t *) av_mallocz((size_t) av_image_get_buffer_size(format,
+    uint8_t *out_buffer = (uint8_t *) av_mallocz((size_t) av_image_get_buffer_size(AV_PIX_FMT_RGBA,
                                                                                    video->codec->width,
                                                                                    video->codec->height, 1));
     //与缓存区相关联，设置rgb_frame缓存区
-    av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize, out_buffer, format, video->codec->width,
+    av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize, out_buffer, AV_PIX_FMT_RGBA, video->codec->width,
                          video->codec->height, 1);
+
     LOGE("转换成rgba格式")
     video->swsContext = sws_getContext(video->codec->width, video->codec->height,
                                        video->codec->pix_fmt,
-                                       video->codec->width, video->codec->height, format,
+                                       video->codec->width, video->codec->height, AV_PIX_FMT_RGBA,
                                        SWS_BICUBIC, NULL, NULL, NULL);
+
     LOGE("LC XXXXX  %f", video->codec);
 
     double last_play  //上一帧的播放时间
@@ -150,10 +143,7 @@ void *ffp_start_video_play(void *args) {
         }
 
         LOGE("播放视频");
-//        call_video_play(player, rgb_frame);
-        glesDraw(player->glesContexts, video->codec->width, video->codec->height, (char *) rgb_frame->data[0]);
-        eglDisplay(player->eglContexts);
-
+        call_video_play(player, rgb_frame);
         av_packet_unref(packet);
 //        av_frame_unref(rgb_frame);
         av_frame_unref(frame);
@@ -170,5 +160,33 @@ void *ffp_start_video_play(void *args) {
     (*player->androidJNI->pJavaVM)->DetachCurrentThread(player->androidJNI->pJavaVM);
     LOGE("退出线程 video")
     pthread_exit(0);
+}
+
+void convertNv12ToRgb(unsigned char *rgbout, unsigned char *pdata,int DataWidth,int DataHeight)
+{
+    unsigned long  idx=0;
+    unsigned char *ybase,*ubase;
+    unsigned char y,u,v;
+    ybase = pdata; //获取Y平面地址
+    ubase = pdata+DataWidth * DataHeight; //获取U平面地址，由于NV12中U、V是交错存储在一个平民的，v是u+1
+    for(int j=0;j<DataHeight;j++)
+    {
+        idx=(DataHeight-j-1)*DataWidth*3;//该值保证所生成的rgb数据逆序存放在rgbbuf中,位图是底朝上的
+        for(int i=0;i<DataWidth;i++)
+        {
+            unsigned char r,g,b;
+            y=ybase[i + j  * DataWidth];//一个像素对应一个y
+            u=ubase[j/2 * DataWidth+(i/2)*2];// 每四个y对应一个uv
+            v=ubase[j/2 * DataWidth+(i/2)*2+1];  //一定要注意是u+1
+
+            b=(unsigned char)(y+1.779*(u- 128));
+            g=(unsigned char)(y-0.7169*(v - 128)-0.3455*(u - 128));
+            r=(unsigned char)(y+ 1.4075*(v - 128));
+
+            rgbout[idx++]=b;
+            rgbout[idx++]=g;
+            rgbout[idx++]=r;
+        }
+    }
 }
 

@@ -16,20 +16,17 @@ Player *get_player(JNIEnv const *env, const void *instance) {
     return player;
 }
 
-void init_window2(Player *player,int32_t format){
+
+void init_window(Player *player) {
     LOGE("surfaceChanged init_window player %d %d %d %d", player, player->video, player->androidJNI->window,
          player->video->height);
     if (player && player->video && player->androidJNI->window && player->video->width > 0) {
         ANativeWindow_setBuffersGeometry(player->androidJNI->window,
                                          player->video->width,
                                          player->video->height,
-                                         format);
+                                         WINDOW_FORMAT_RGBA_8888);
         LOGE("surfaceChanged init_window");
     }
-}
-
-void init_window(Player *player) {
-    init_window2(player,WINDOW_FORMAT_RGBA_8888);
 }
 
 void change_window_size(Player *player) {
