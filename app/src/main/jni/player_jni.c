@@ -31,6 +31,7 @@ Java_com_ffmpeg_Play__1play(JNIEnv *env, jobject instance, jstring inputPath_) {
 
 JNIEXPORT void JNICALL
 Java_com_ffmpeg_Play__1display(JNIEnv *env, jobject instance, jobject surface) {
+
     Player *player = get_player(env, instance);
 
     if (player->androidJNI->window) {

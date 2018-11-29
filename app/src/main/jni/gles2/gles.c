@@ -5,12 +5,12 @@
 
 GLboolean checkGlError(const char *funcName) {
     GLint err = glGetError();
-    LOGE("GL error after %s(): 0x%08x\n", funcName, err);
+    LOGE("gles GL error after %s(): 0x%08x\n", funcName, err);
     if (err != GL_NO_ERROR) {
-        LOGE("GL true");
+        LOGE("gles GL true");
         return GL_TRUE;
     }
-    LOGE("GL false");
+    LOGE("gles GL false");
     return GL_FALSE;
 }
 
@@ -18,9 +18,10 @@ GLboolean checkGlError(const char *funcName) {
 GLuint createShader(GLenum shaderType, const char *src) {
     GLuint shader = glCreateShader(shaderType);
     if (!shader) {
-        checkGlError("glCreateShader");
+        checkGlError(" glCreateShader ");
+        LOGE("gles glCreateShader %d ", shaderType);
         return 0;
-    } else{
+    } else {
         LOGE("shader ok");
     }
     glShaderSource(shader, 1, &src, NULL);
@@ -35,7 +36,7 @@ GLuint createShader(GLenum shaderType, const char *src) {
             GLchar *infoLog = (GLchar *) malloc(infoLogLen);
             if (infoLog) {
                 glGetShaderInfoLog(shader, infoLogLen, NULL, infoLog);
-                LOGE("Could not compile %s shader:\n%s\n",
+                LOGE("gles Could not compile %s shader:\n%s\n",
                      shaderType == GL_VERTEX_SHADER ? "vertex" : "fragment",
                      infoLog);
                 free(infoLog);
@@ -73,14 +74,14 @@ GLuint createProgram(const char *vtxSrc, const char *fragSrc) {
     glLinkProgram(program);
     glGetProgramiv(program, GL_LINK_STATUS, &linked);
     if (!linked) {
-        LOGE("Could not link program");
+        LOGE("gles Could not link program");
         GLint infoLogLen = 0;
         glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLen);
         if (infoLogLen) {
             GLchar *infoLog = (GLchar *) malloc(infoLogLen);
             if (infoLog) {
                 glGetProgramInfoLog(program, infoLogLen, NULL, infoLog);
-                LOGE("Could not link program:\n%s\n", infoLog);
+                LOGE("gles Could not link program:\n%s\n", infoLog);
                 free(infoLog);
             }
         }

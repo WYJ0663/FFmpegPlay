@@ -77,7 +77,7 @@ void init_param(Player *player) {
     player->eglContexts->eglContext = 0;
     player->eglContexts->eglFormat = 0;//颜色格式
     player->eglContexts->config = 0;
-    player->glesContexts->mTextureID = 0;
+
     player->glesContexts->program = 0;
 }
 
@@ -139,13 +139,15 @@ void ffp_free(Player *player) {
     player->androidJNI->pInstance = NULL;
 //    (*player->androidJNI->pJavaVM)->DetachCurrentThread(player->androidJNI->pJavaVM);
 
-    glesDestroye(player->video->width, player->video->height);
+    glesDestroye(player->glesContexts, player->video->width, player->video->height);
     eglDestroye(player->eglContexts);
 
     av_free(player->androidJNI);
     av_free(player->status);
     av_free(player->audio);
     av_free(player->video);
+    av_free(player->glesContexts);
+    av_free(player->eglContexts);
     av_free(player);
 
 }

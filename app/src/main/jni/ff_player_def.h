@@ -80,7 +80,6 @@ struct Video {
 
     AVCodecContext *codec;//解码器上下文
 
-    struct SwsContext *swsContext;
     //同步锁
     pthread_mutex_t mutex;
     //条件变量

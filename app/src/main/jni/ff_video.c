@@ -52,6 +52,7 @@ double synchronize(Video *video, AVFrame *frame, double play) {
 }
 
 void *ffp_start_video_play(void *args) {
+
     Player *player = (Player *) args;
     Video *video = player->video;
     //初始化屏幕
@@ -59,26 +60,21 @@ void *ffp_start_video_play(void *args) {
     init_window2(player, player->eglContexts->eglFormat);
     eglLinkWindow(player->eglContexts, player->androidJNI->window);
     glesInit(player->glesContexts, video->codec->width, video->codec->height);
-
+    LOGE("video->codec 宽%d,高%d", video->codec->width, video->codec->height);
     //申请AVFrame
     AVFrame *frame = av_frame_alloc();//分配一个AVFrame结构体,AVFrame结构体一般用于存储原始数据，指向解码后的原始帧
-    AVFrame *rgb_frame = av_frame_alloc();//分配一个AVFrame结构体，指向存放转换成rgb后的帧
     AVPacket *packet = av_packet_alloc();
 
-    //创建格式转器
-    enum AVPixelFormat format = AV_PIX_FMT_RGB24;//
-    //缓存区
-    uint8_t *out_buffer = (uint8_t *) av_mallocz((size_t) av_image_get_buffer_size(format,
-                                                                                   video->codec->width,
-                                                                                   video->codec->height, 1));
-    //与缓存区相关联，设置rgb_frame缓存区
-    av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize, out_buffer, format, video->codec->width,
-                         video->codec->height, 1);
-    LOGE("转换成rgba格式")
-    video->swsContext = sws_getContext(video->codec->width, video->codec->height,
-                                       video->codec->pix_fmt,
-                                       video->codec->width, video->codec->height, format,
-                                       SWS_BICUBIC, NULL, NULL, NULL);
+    switch (video->codec->pix_fmt) {
+        case AV_PIX_FMT_YUV420P:
+            LOGE("get_format %s ", "AV_PIX_FMT_YUV420P");
+            break;
+        case AV_PIX_FMT_YUVJ420P:
+            LOGE("get_format %s ", "AV_PIX_FMT_YUVJ420P");
+            break;
+    }
+    LOGE("get_format %d ", video->codec->pix_fmt);
+
     LOGE("LC XXXXX  %f", video->codec);
 
     double last_play  //上一帧的播放时间
@@ -104,16 +100,6 @@ void *ffp_start_video_play(void *args) {
         if (avcodec_receive_frame(video->codec, frame) != 0) {
             continue;
         }
-//        avcodec_decode_video2(video->codec, frame, &frameCount, packet);
-//        if (!frameCount) {
-//            continue;
-//        }
-        //转换为rgb格式
-        sws_scale(video->swsContext, (const uint8_t *const *) frame->data, frame->linesize, 0,
-                  frame->height, rgb_frame->data,
-                  rgb_frame->linesize);
-        LOGE("frame 宽%d,高%d", frame->width, frame->height);
-        LOGE("rgb格式 宽%d,高%d", rgb_frame->width, rgb_frame->height);
 
         if ((pts = av_frame_get_best_effort_timestamp(frame)) == AV_NOPTS_VALUE) {
             pts = 0;
@@ -150,12 +136,11 @@ void *ffp_start_video_play(void *args) {
         }
 
         LOGE("播放视频");
-//        call_video_play(player, rgb_frame);
-        glesDraw(player->glesContexts, video->codec->width, video->codec->height, (char *) rgb_frame->data[0]);
+        glesDraw(player->glesContexts, video->codec->width, video->codec->height,
+           frame->data[0], frame->data[1], frame->data[2],frame);
         eglDisplay(player->eglContexts);
 
         av_packet_unref(packet);
-//        av_frame_unref(rgb_frame);
         av_frame_unref(frame);
     }
     LOGE("free packet");
@@ -163,10 +148,6 @@ void *ffp_start_video_play(void *args) {
     av_packet_free(&packet);
     av_frame_unref(frame);
     av_frame_free(&frame);
-    av_frame_unref(rgb_frame);
-    av_frame_free(&rgb_frame);
-    av_free(out_buffer);
-    sws_freeContext(video->swsContext);
     (*player->androidJNI->pJavaVM)->DetachCurrentThread(player->androidJNI->pJavaVM);
     LOGE("退出线程 video")
     pthread_exit(0);

@@ -5,6 +5,8 @@
 #include "../log.h"
 #include <android/native_window_jni.h>
 
+#define GLES_STRINGIZE(x)   #x
+
 typedef struct EGLContexts {
     EGLDisplay eglDisplay;
     EGLSurface eglSurface;

@@ -106,6 +106,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
 
     public void player2(View view) {
         mPlayer = new Play();
+        mPlayer.display(surfaceView.getHolder().getSurface());
         mPlayer.setOnPlayCallback(this);
         mPlayer.setSurfaceView(surfaceView);
         mPlayer.play(url2);
@@ -115,6 +116,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
 
     public void player3(View view) {
         mPlayer = new Play();
+        mPlayer.display(surfaceView.getHolder().getSurface());
         mPlayer.setOnPlayCallback(this);
         mPlayer.setSurfaceView(surfaceView);
         mPlayer.play(url3);
