@@ -19,6 +19,7 @@ Queue *createQueue() {
 void freeQueue(Queue *queue) {
     if (queue) {
         free(queue);
+        queue = 0;
     }
 }
 
@@ -55,6 +56,7 @@ AVPacket *deQueue(Queue *queue) {
         queue->head = NULL;
         queue->tail = NULL;
         free(head);
+        head = 0;
     } else {//多个
         Node *head = queue->head;
         data = head->data;
@@ -63,6 +65,7 @@ AVPacket *deQueue(Queue *queue) {
             queue->tail = NULL;
         }
         free(head);
+        head = 0;
     }
     queue->size--;
     return data;

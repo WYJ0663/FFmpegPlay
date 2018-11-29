@@ -9,10 +9,10 @@
 
 void ffp_audio_free(Audio *audio) {
     if (audio->out_buffer) {
-        av_free(audio->out_buffer);
+        free(audio->out_buffer);
     }
     if (audio->out_rate_buffer) {
-        av_free(audio->out_rate_buffer);
+        free(audio->out_rate_buffer);
     }
 
     if (audio->bqPlayerPlay) {

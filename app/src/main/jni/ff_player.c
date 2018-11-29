@@ -93,7 +93,7 @@ void ffp_stop(Player *player) {
     pthread_cond_signal(&player->video->cond);
     pthread_mutex_unlock(&player->video->mutex);
 
-//    av_usleep(2000000);
+    av_usleep(5000000);
     pthread_join(player->p_id, 0);
     pthread_join(player->audio->p_id, 0);
     pthread_join(player->video->p_id, 0);
@@ -142,14 +142,15 @@ void ffp_free(Player *player) {
     glesDestroye(player->glesContexts, player->video->width, player->video->height);
     eglDestroye(player->eglContexts);
 
-    av_free(player->androidJNI);
-    av_free(player->status);
-    av_free(player->audio);
-    av_free(player->video);
-    av_free(player->glesContexts);
-    av_free(player->eglContexts);
-    av_free(player);
+    free(player->androidJNI);
+    free(player->status);
+    free(player->audio);
+    free(player->video);
+    free(player->glesContexts);
+    free(player->eglContexts);
+    free(player);
 
+    LOGE("回收内存结束");
 }
 
 //
@@ -220,7 +221,7 @@ int ffp_init_audio_ffmpeg(Audio *audio) {
     int length = 0;
     int got_frame;
     //    44100*2
-    audio->out_buffer = (uint8_t *) av_mallocz(44100 * 2);
+    audio->out_buffer = (uint8_t *) malloc(44100 * 2);
     uint64_t out_ch_layout = AV_CH_LAYOUT_STEREO;
     //    输出采样位数  16位
     enum AVSampleFormat out_formart = AV_SAMPLE_FMT_S16;
@@ -236,7 +237,7 @@ int ffp_init_audio_ffmpeg(Audio *audio) {
     LOGE("------>通道数%d  ", audio->out_channer_nb);
 
     //倍速初始化
-    audio->out_rate_buffer = (short *) av_mallocz(44100 * 2);
+    audio->out_rate_buffer = (short *) malloc(44100 * 2);
     audio->sonic = sonicCreateStream(audio->codec->sample_rate, audio->out_channer_nb);
     return 0;
 }
@@ -244,11 +245,6 @@ int ffp_init_audio_ffmpeg(Audio *audio) {
 
 void *start_play(void *arg) {
     Player *player = (Player *) arg;
-    //开启播放
-    //seekTo(0);
-    //解码packet,并压入队列中
-//    AVPacket *packet = player->packet;
-    //跳转到某一个特定的帧上面播放
     int ret;
     while (player->status->isPlay) {
 //        seek_to(player);

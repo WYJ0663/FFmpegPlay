@@ -29,8 +29,7 @@ typedef struct GLESContexts {
 
 GLboolean glesInit(GLESContexts *contexts, int width, int height);
 
-void glesDraw(GLESContexts *contexts, int width, int height, uint8_t *yData, uint8_t *uData, uint8_t *vData,
-              AVFrame *avFrame);
+void glesDraw(GLESContexts *contexts, int width, int height, uint8_t *yData, uint8_t *uData, uint8_t *vData);
 
 void glesDestroye(GLESContexts *contexts, int width, int height);
 

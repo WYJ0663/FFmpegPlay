@@ -16,7 +16,7 @@ import android.view.SurfaceView;
  */
 
 public class Play implements SurfaceHolder.Callback {
-    static boolean isload = false;
+    private static boolean isload = false;
 
     static {
         if (!isload) {

@@ -137,7 +137,7 @@ void *ffp_start_video_play(void *args) {
 
         LOGE("播放视频");
         glesDraw(player->glesContexts, video->codec->width, video->codec->height,
-           frame->data[0], frame->data[1], frame->data[2],frame);
+           frame->data[0], frame->data[1], frame->data[2]);
         eglDisplay(player->eglContexts);
 
         av_packet_unref(packet);
