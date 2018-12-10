@@ -13,13 +13,12 @@
 void init_param(Player *player);
 
 Player *ffp_create_player() {
-    Player *player = av_malloc(sizeof(Player));
-    player->avPacket = av_packet_alloc();
+    Player *player = malloc(sizeof(Player));
     pthread_mutex_init(&player->mutex, NULL);
     pthread_cond_init(&player->cond, NULL);
 
     //音频
-    player->audio = av_malloc(sizeof(Audio));
+    player->audio = malloc(sizeof(Audio));
     player->audio->avPacket = av_packet_alloc();
     player->audio->avFrame = av_frame_alloc();
     player->audio->queue = createQueue();
@@ -27,7 +26,7 @@ Player *ffp_create_player() {
     pthread_cond_init(&player->audio->cond, NULL);
 
     //视频
-    player->video = av_malloc(sizeof(Video));
+    player->video = malloc(sizeof(Video));
     player->video->width = 0;
     player->video->height = 0;
     player->video->queue = createQueue();
@@ -36,18 +35,18 @@ Player *ffp_create_player() {
     player->video->audio = player->audio;
 
     //Android
-    player->androidJNI = av_malloc(sizeof(AndroidJNI));
+    player->androidJNI = malloc(sizeof(AndroidJNI));
     player->audio->androidJNI = player->androidJNI;
     player->video->androidJNI = player->androidJNI;
 
     //状态
-    player->status = av_malloc(sizeof(PlayerStatus));
+    player->status = malloc(sizeof(PlayerStatus));
     player->audio->status = player->status;
     player->video->status = player->status;
 
     //opengles、egl
-    player->eglContexts = av_malloc(sizeof(EGLContexts));
-    player->glesContexts = av_malloc(sizeof(GLESContexts));
+    player->eglContexts = malloc(sizeof(EGLContexts));
+    player->glesContexts = malloc(sizeof(GLESContexts));
 
     //参数初始化
     init_param(player);
@@ -93,7 +92,7 @@ void ffp_stop(Player *player) {
     pthread_cond_signal(&player->video->cond);
     pthread_mutex_unlock(&player->video->mutex);
 
-    av_usleep(5000000);
+    av_usleep(1000);
     pthread_join(player->p_id, 0);
     pthread_join(player->audio->p_id, 0);
     pthread_join(player->video->p_id, 0);
@@ -107,8 +106,6 @@ void ffp_free(Player *player) {
     pthread_mutex_destroy(&player->mutex);
     pthread_cond_destroy(&player->cond);
 
-    av_packet_unref(player->avPacket);
-    av_packet_free(&player->avPacket);
     avformat_close_input(&player->pFormatCtx);
 
     av_packet_unref(player->audio->avPacket);
@@ -245,18 +242,19 @@ int ffp_init_audio_ffmpeg(Audio *audio) {
 
 void *start_play(void *arg) {
     Player *player = (Player *) arg;
+    AVPacket* avPacket = av_packet_alloc();
     int ret;
     while (player->status->isPlay) {
 //        seek_to(player);
-        ret = av_read_frame(player->pFormatCtx, player->avPacket);
-        LOGE("av_read_frame %d  %d %d", player->avPacket->stream_index, player->audio->index, ret);
+        ret = av_read_frame(player->pFormatCtx, avPacket);
+        LOGE("av_read_frame %d  %d %d",avPacket->stream_index, player->audio->index, ret);
         if (ret == 0) {
-            if (player->avPacket->stream_index == player->video->index) {
+            if (avPacket->stream_index == player->video->index) {
                 //将视频packet压入队列
-                put_video_packet(player->video, player->avPacket);
-            } else if (player->avPacket->stream_index == player->audio->index) {
+                put_video_packet(player->video, avPacket);
+            } else if (avPacket->stream_index == player->audio->index) {
                 LOGE("put_packet");
-                put_audio_packet(player->audio, player->avPacket);
+                put_audio_packet(player->audio, avPacket);
 //                checkQueue();
             }
         } else if (ret == AVERROR_EOF) {
@@ -270,10 +268,11 @@ void *start_play(void *arg) {
                 av_usleep(10000);
             }
         }
-        av_packet_unref(player->avPacket);
+        av_packet_unref(avPacket);
     }
     (*player->androidJNI->pJavaVM)->DetachCurrentThread(player->androidJNI->pJavaVM);
-
+    av_packet_unref(avPacket);
+    av_packet_free(&avPacket);
     LOGE("退出线程 mian")
     pthread_exit(0);
 }

@@ -112,7 +112,9 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
         mPlayer.play(url2);
     }
 
-    public static final String url3 = "http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4";
+    //    public static final String url3 = "http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4";
+    public static final String url3 = "rtmp://live.hkstv.hk.lxdns.com/live/hks1";
+//    public static final String url3 = "http://221.228.226.23/11/t/j/v/b/tjvbwspwhqdmgouolposcsfafpedmb/sh.yinyuetai.com/691201536EE4912BF7E4F1E2C67B8119.mp4";
 
     public void player3(View view) {
         mPlayer = new Play();
@@ -122,7 +124,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
         mPlayer.play(url3);
     }
 
-    public static final String url4 = Environment.getExternalStorageDirectory().getPath() + "/test4.mp4";
+    public static final String url4 = Environment.getExternalStorageDirectory().getPath() + "/2222.h264";
 
     public void player4(View view) {
         mPlayer = new Play();

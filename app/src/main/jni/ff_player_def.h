@@ -36,7 +36,6 @@ struct Player {
 
     int64_t duration;
     AVFormatContext *pFormatCtx;
-    AVPacket *avPacket;
 
     bool isCutImage;
 

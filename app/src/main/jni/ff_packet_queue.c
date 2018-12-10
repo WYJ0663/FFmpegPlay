@@ -71,14 +71,15 @@ AVPacket *deQueue(Queue *queue) {
     return data;
 }
 
-
 //将packet压入队列,生产者
 int putQueue(Queue *queue, AVPacket *avPacket, pthread_mutex_t *mutex, pthread_cond_t *cond) {
     LOGE("插入队列")
     AVPacket *avPacket1 = av_packet_alloc();
     //克隆
     if (av_packet_ref(avPacket1, avPacket)) {
-        //克隆失败
+        av_packet_unref(avPacket1);
+        av_packet_free(&avPacket1);
+        LOGE("克隆失败")
         return 0;
     }
     pthread_mutex_lock(mutex);
