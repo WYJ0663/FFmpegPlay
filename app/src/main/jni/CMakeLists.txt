@@ -21,7 +21,6 @@ add_library( # Sets the name of the library.
         sonic/sonic.c
 
         ff_player.c
-        ff_packet_queue.c
         ff_audio.c
         ff_video.c
         player_jni.c
@@ -31,6 +30,7 @@ add_library( # Sets the name of the library.
         gles2/egl.c
         gles2/gles.c
 #        gles2/matrix.c
+        queue.c
         )
 
 add_library(libavcodec SHARED IMPORTED)

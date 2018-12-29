@@ -4,27 +4,37 @@
 #include "ff_video.h"
 #include "android_jni.h"
 #include "gles2/egl.h"
+#include "ff_player.h"
 
-void get_video_packet(Video *video, AVPacket *avPacket) {
-    LOGE("拿包  %d ", video->queue->size);
-    pthread_mutex_lock(&video->mutex);
-    while (video->status->isPlay == true) {
-        if (video->queue->size > 0 && !video->status->isPause) {
-            //如果队列中有数据可以拿出来
-            if (getQueue(video->queue, avPacket) == 0) {
-                LOGE("没有拿包  ");
-            }
-            break;
-        } else {
-            pthread_cond_wait(&video->cond, &video->mutex);
-        }
+AVPacket *get_video_packet(Video *video) {
+    if (video->status->isPause) {
+        pthread_mutex_lock(&video->queue->mutex);
+        pthread_cond_wait(&video->queue->cond, &video->queue->mutex);
+        pthread_mutex_unlock(&video->queue->mutex);
     }
-    pthread_mutex_unlock(&video->mutex);
+    AVPacket *avPacket = getQueue(video->queue);
+
+    if (video->queue->size < MIN_QUEUE_SIZE) {
+        pthread_cond_signal(&video->status->cond);
+    }
+
+    return avPacket;
 }
 
 void put_video_packet(Video *video, AVPacket *avPacket) {
     LOGE("包  %d ", video->queue->size);
-    putQueue(video->queue, avPacket, &video->mutex, &video->cond);
+    AVPacket *dst = av_packet_alloc();
+
+    if (av_packet_ref(dst, avPacket)) {
+        av_packet_unref(dst);
+        av_packet_free(&dst);
+        LOGE("克隆失败")
+    }
+    if (putQueue(video->queue, dst) == 0) {
+        av_packet_unref(dst);
+        av_packet_free(&dst);
+        LOGE("插入失败")
+    }
 }
 
 double synchronize(Video *video, AVFrame *frame, double play) {
@@ -63,7 +73,6 @@ void *ffp_start_video_play(void *args) {
     LOGE("video->codec 宽%d,高%d", video->codec->width, video->codec->height);
     //申请AVFrame
     AVFrame *frame = av_frame_alloc();//分配一个AVFrame结构体,AVFrame结构体一般用于存储原始数据，指向解码后的原始帧
-    AVPacket *packet = av_packet_alloc();
 
     switch (video->codec->pix_fmt) {
         case AV_PIX_FMT_YUV420P:
@@ -93,7 +102,7 @@ void *ffp_start_video_play(void *args) {
     start_time = av_gettime() / 1000000.0;
     LOGE("解码 ")
     while (video->status->isPlay) {
-        get_video_packet(video, packet);
+        AVPacket *packet = get_video_packet(video);
 //        LOGE("解码 %d", packet->stream_index)
         // 解码
         avcodec_send_packet(video->codec, packet);
@@ -137,15 +146,14 @@ void *ffp_start_video_play(void *args) {
 
         LOGE("播放视频");
         glesDraw(player->glesContexts, video->codec->width, video->codec->height,
-           frame->data[0], frame->data[1], frame->data[2]);
+                 frame->data[0], frame->data[1], frame->data[2]);
         eglDisplay(player->eglContexts);
 
         av_packet_unref(packet);
+        av_packet_free(&packet);
         av_frame_unref(frame);
     }
     LOGE("free packet");
-    av_packet_unref(packet);
-    av_packet_free(&packet);
     av_frame_unref(frame);
     av_frame_free(&frame);
     (*player->androidJNI->pJavaVM)->DetachCurrentThread(player->androidJNI->pJavaVM);

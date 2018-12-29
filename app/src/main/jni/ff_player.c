@@ -14,24 +14,17 @@ void init_param(Player *player);
 
 Player *ffp_create_player() {
     Player *player = malloc(sizeof(Player));
-    pthread_mutex_init(&player->mutex, NULL);
-    pthread_cond_init(&player->cond, NULL);
 
     //音频
     player->audio = malloc(sizeof(Audio));
-    player->audio->avPacket = av_packet_alloc();
     player->audio->avFrame = av_frame_alloc();
     player->audio->queue = createQueue();
-    pthread_mutex_init(&player->audio->mutex, NULL);
-    pthread_cond_init(&player->audio->cond, NULL);
 
     //视频
     player->video = malloc(sizeof(Video));
     player->video->width = 0;
     player->video->height = 0;
     player->video->queue = createQueue();
-    pthread_mutex_init(&player->video->mutex, NULL);
-    pthread_cond_init(&player->video->cond, NULL);
     player->video->audio = player->audio;
 
     //Android
@@ -43,6 +36,8 @@ Player *ffp_create_player() {
     player->status = malloc(sizeof(PlayerStatus));
     player->audio->status = player->status;
     player->video->status = player->status;
+    pthread_mutex_init(&player->status->mutex, NULL);
+    pthread_cond_init(&player->status->cond, NULL);
 
     //opengles、egl
     player->eglContexts = malloc(sizeof(EGLContexts));
@@ -83,46 +78,42 @@ void init_param(Player *player) {
 
 void ffp_stop(Player *player) {
     player->status->isPlay = false;
+    av_usleep(100);
     //取消队列等待
-    pthread_mutex_lock(&player->audio->mutex);
-    pthread_cond_signal(&player->audio->cond);
-    pthread_mutex_unlock(&player->audio->mutex);
+    pthread_mutex_lock(&player->audio->queue->mutex);
+    pthread_cond_signal(&player->audio->queue->cond);
+    pthread_mutex_unlock(&player->audio->queue->mutex);
 
-    pthread_mutex_lock(&player->video->mutex);
-    pthread_cond_signal(&player->video->cond);
-    pthread_mutex_unlock(&player->video->mutex);
+    pthread_mutex_lock(&player->video->queue->mutex);
+    pthread_cond_signal(&player->video->queue->cond);
+    pthread_mutex_unlock(&player->video->queue->mutex);
 
-    av_usleep(1000);
+    pthread_mutex_lock(&player->status->mutex);
+    pthread_cond_signal(&player->status->cond);
+    pthread_mutex_unlock(&player->status->mutex);
+
+//    av_usleep(1000);
     pthread_join(player->p_id, 0);
     pthread_join(player->audio->p_id, 0);
     pthread_join(player->video->p_id, 0);
 
     ffp_free(player);
-
 }
 
 void ffp_free(Player *player) {
     LOGE("回收内存");
-    pthread_mutex_destroy(&player->mutex);
-    pthread_cond_destroy(&player->cond);
+    pthread_mutex_destroy(&player->status->mutex);
+    pthread_cond_destroy(&player->status->cond);
 
     avformat_close_input(&player->pFormatCtx);
 
-    av_packet_unref(player->audio->avPacket);
-    av_packet_free(&player->audio->avPacket);
     av_frame_unref(player->audio->avFrame);
     av_frame_free(&player->audio->avFrame);
-    pthread_mutex_destroy(&player->audio->mutex);
-    pthread_cond_destroy(&player->audio->cond);
-    cleanQueue(player->audio->queue);
-    freeQueue(player->audio->queue);
+    freeAVPacketQueue(player->audio->queue);
     ffp_audio_free(player->audio);
     avcodec_free_context(&player->audio->codec);
 
-    pthread_mutex_destroy(&player->video->mutex);
-    pthread_cond_destroy(&player->video->cond);
-    cleanQueue(player->video->queue);
-    freeQueue(player->video->queue);
+    freeAVPacketQueue(player->video->queue);
     avcodec_free_context(&player->video->codec);;
 
     if (player->androidJNI->window) {
@@ -164,10 +155,12 @@ void ffp_init_ffmpeg(Player *player, char *url) {
     //2.打开输入视频文件
     if (avformat_open_input(&player->pFormatCtx, player->inputPath, NULL, NULL) != 0) {
         LOGE("%s", "打开输入视频文件失败");
+        return;
     }
     //3.获取视频信息
     if (avformat_find_stream_info(player->pFormatCtx, NULL) < 0) {
         LOGE("%s", "获取视频信息失败");
+        return;
     }
 
     //得到播放总时间
@@ -239,22 +232,32 @@ int ffp_init_audio_ffmpeg(Audio *audio) {
     return 0;
 }
 
+void check_queue(Player *player) {
+    if (player->video->queue->size > MAX_QUEUE_SIZE &&
+        player->audio->queue->size > MAX_QUEUE_SIZE) {
+        pthread_mutex_lock(&player->status->mutex);
+        pthread_cond_wait(&player->status->cond, &player->status->mutex);
+        pthread_mutex_unlock(&player->status->mutex);
+    }
+}
 
 void *start_play(void *arg) {
     Player *player = (Player *) arg;
-    AVPacket* avPacket = av_packet_alloc();
+    AVPacket *avPacket = av_packet_alloc();
     int ret;
     while (player->status->isPlay) {
 //        seek_to(player);
         ret = av_read_frame(player->pFormatCtx, avPacket);
-        LOGE("av_read_frame %d  %d %d",avPacket->stream_index, player->audio->index, ret);
+        LOGE("av_read_frame %d  %d %d", avPacket->stream_index, player->audio->index, ret);
         if (ret == 0) {
             if (avPacket->stream_index == player->video->index) {
                 //将视频packet压入队列
                 put_video_packet(player->video, avPacket);
+                check_queue(player);
             } else if (avPacket->stream_index == player->audio->index) {
                 LOGE("put_packet");
                 put_audio_packet(player->audio, avPacket);
+                check_queue(player);
 //                checkQueue();
             }
         } else if (ret == AVERROR_EOF) {
@@ -297,8 +300,13 @@ void seek_to(Player *player) {
 
 //    Queue *queue1 = ffmpegMusic->queue;//销毁
 //    Queue *queue2 = ffmpegMusic->queue;
-    player->audio->queue = createQueue();
-    player->video->queue = createQueue();
+//    player->audio->queue = createQueue();
+//    player->video->queue = createQueue();
+
+    player->status->isPause = true;
+
+    cleanAVPacketQueue(player->audio->queue);
+    cleanAVPacketQueue(player->video->queue);
 
 //    Queue *queue1;
 //    Queue *queue2;
@@ -313,6 +321,9 @@ void seek_to(Player *player) {
 //    LOGE("queue size %d", queue2->size);
 //    pthread_mutex_unlock(&ffmpegVideo->mutex);
 
+    pthread_mutex_lock(&player->audio->queue->mutex);
+    pthread_mutex_lock(&player->video->queue->mutex);
+
     LOGE("av_seek_frame %d", (int) (player->seekTime / av_q2d(player->video->time_base)));
     av_seek_frame(player->pFormatCtx, player->video->index,
                   (int64_t) (player->seekTime / av_q2d(player->video->time_base)),
@@ -322,6 +333,13 @@ void seek_to(Player *player) {
                   AVSEEK_FLAG_FRAME);
 
     player->seekTime = -1;
+    player->status->isPause = false;
+
+    pthread_cond_signal(&player->status->cond);
+
+    pthread_mutex_unlock(&player->video->queue->mutex);
+    pthread_mutex_unlock(&player->audio->queue->mutex);
+
 //    startQueue();
 //
 //    pthread_t p_tid1;

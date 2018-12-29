@@ -12,7 +12,7 @@
 #include <SLES/OpenSLES_Android.h>
 #include <android/native_window.h>
 
-#include "ff_packet_queue.h"
+#include "queue.h"
 #include "ff_player.h"
 #include "ff_player_def.h"
 

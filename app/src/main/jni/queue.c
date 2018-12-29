@@ -2,9 +2,10 @@
 // Created by yijunwu on 2018/10/17.
 //
 
-#include <libavcodec/avcodec.h>
 #include <pthread.h>
-#include "ff_packet_queue.h"
+#include <malloc.h>
+#include <libavcodec/avcodec.h>
+#include "queue.h"
 #include "log.h"
 
 //初始化队列
@@ -13,19 +14,30 @@ Queue *createQueue() {
     queue->head = NULL;
     queue->tail = NULL;
     queue->size = 0;
+
+    pthread_mutex_init(&queue->mutex, NULL);
+    pthread_cond_init(&queue->cond, NULL);
+
+    queue->is_destroy = 0;
     return queue;
 }
 
 void freeQueue(Queue *queue) {
     if (queue) {
+        queue->is_destroy = 1;
+        cleanQueue(queue);
+        pthread_mutex_destroy(&queue->mutex);
+        pthread_cond_destroy(&queue->cond);
         free(queue);
-        queue = 0;
     }
 }
 
 //入队
-void enQueue(Queue *queue, AVPacket *data) {
-    if (data==NULL){ return;}
+int enQueue(Queue *queue, void *data) {
+    if (queue->is_destroy == 1) {
+        return 0;
+    }
+    if (data == NULL) { return 0; }
     Node *node = (Node *) malloc(sizeof(Node));
     node->data = data;
     if (queue->head == NULL) {//空队列
@@ -42,21 +54,24 @@ void enQueue(Queue *queue, AVPacket *data) {
         LOGE("enQueue n %d", queue->size);
     }
     queue->size++;
+
+    return 1;
 }
 
 //出队
-AVPacket *deQueue(Queue *queue) {
+void *deQueue(Queue *queue) {
     LOGE("deQueue  %d", queue->size);
-    AVPacket *data;
+    void *data;
     if (queue->head == NULL) {//空队列
         data = NULL;
+        queue->size = 0;
     } else if (queue->head != NULL && queue->tail == NULL) {//1个
         Node *head = queue->head;
         data = head->data;
         queue->head = NULL;
         queue->tail = NULL;
         free(head);
-        head = 0;
+        queue->size--;
     } else {//多个
         Node *head = queue->head;
         data = head->data;
@@ -65,52 +80,63 @@ AVPacket *deQueue(Queue *queue) {
             queue->tail = NULL;
         }
         free(head);
-        head = 0;
+        queue->size--;
     }
-    queue->size--;
     return data;
 }
 
 //将packet压入队列,生产者
-int putQueue(Queue *queue, AVPacket *avPacket, pthread_mutex_t *mutex, pthread_cond_t *cond) {
-    LOGE("插入队列")
-    AVPacket *avPacket1 = av_packet_alloc();
-    //克隆
-    if (av_packet_ref(avPacket1, avPacket)) {
-        av_packet_unref(avPacket1);
-        av_packet_free(&avPacket1);
-        LOGE("克隆失败")
+int putQueue(Queue *queue, void *avPacket) {
+    if (queue->is_destroy == 1) {
         return 0;
     }
-    pthread_mutex_lock(mutex);
     LOGE("插入队列 %d ", queue->size);
+    pthread_mutex_lock(&queue->mutex);
+
     //push的时候需要锁住，有数据的时候再解锁
-    enQueue(queue, avPacket1);//将packet压入队列
+    enQueue(queue, avPacket);//将packet压入队列
     //压入过后发出消息并且解锁
-    pthread_cond_signal(cond);
-    pthread_mutex_unlock(mutex);
+    pthread_cond_signal(&queue->cond);
+    pthread_mutex_unlock(&queue->mutex);
     return 1;
 }
 
 //将packet弹出队列
-int getQueue(Queue *queue, AVPacket *avPacket) {
+void *getQueue(Queue *queue) {
     LOGE("取出队列")
+    pthread_mutex_lock(&queue->mutex);
     //如果队列中有数据可以拿出来
-    AVPacket *ptk = deQueue(queue);
-    if (ptk == NULL) {
-        LOGE("取出队列失败")
-        return 0;
+    void *ptk = NULL;
+    while (1) {
+        ptk = deQueue(queue);
+        if (ptk != NULL) {
+            //如果队列中有数据可以拿出来
+            break;
+        } else {
+            LOGE("队列 wait")
+            pthread_cond_wait(&queue->cond, &queue->mutex);
+        }
     }
-    if (av_packet_ref(avPacket, ptk) != 0) {//失败
-        return 0;
-    }
-    //取成功了，弹出队列，销毁packet
-    av_packet_unref(ptk);
-    av_packet_free(&ptk);
-    return 1;
+    //压入过后发出消息并且解锁
+    pthread_mutex_unlock(&queue->mutex);
+    return ptk;
 }
 
 int cleanQueue(Queue *queue) {
+    pthread_mutex_lock(&queue->mutex);
+    void *pkt = deQueue(queue);
+    while (pkt != NULL) {
+        LOGE("销毁%d", 1);
+        pkt = deQueue(queue);
+    }
+    pthread_mutex_unlock(&queue->mutex);
+    return 1;
+}
+
+
+//针对AVPacket销毁
+int cleanAVPacketQueue(Queue *queue) {
+    pthread_mutex_lock(&queue->mutex);
     AVPacket *pkt = deQueue(queue);
     while (pkt != NULL) {
         LOGE("销毁帧%d", 1);
@@ -118,5 +144,16 @@ int cleanQueue(Queue *queue) {
         av_packet_free(&pkt);
         pkt = deQueue(queue);
     }
+    pthread_mutex_unlock(&queue->mutex);
     return 1;
+}
+
+void freeAVPacketQueue(Queue *queue) {
+    if (queue) {
+        queue->is_destroy = 1;
+        cleanAVPacketQueue(queue);
+        pthread_mutex_destroy(&queue->mutex);
+        pthread_cond_destroy(&queue->cond);
+        free(queue);
+    }
 }

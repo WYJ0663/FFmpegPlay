@@ -68,27 +68,36 @@ int getSonicData(Audio *audio, int nb) {
     return 0;
 }
 
-void get_audio_packet(Audio *audio) {
-    LOGE("拿包  %d ", audio->queue->size);
-    pthread_mutex_lock(&audio->mutex);
-    while (audio->status->isPlay == true) {
-        if (audio->queue->size > 0 && !audio->status->isPause) {
-            //如果队列中有数据可以拿出来
-            if (getQueue(audio->queue, audio->avPacket) == 0) {
-                LOGE("没有拿包  ");
-            }
-            break;
-        } else {
-            pthread_cond_wait(&audio->cond, &audio->mutex);
-        }
-    }
-    pthread_mutex_unlock(&audio->mutex);
-}
+AVPacket *get_audio_packet(Audio *audio) {
 
+    if (audio->status->isPause) {
+        pthread_mutex_lock(&audio->queue->mutex);
+        pthread_cond_wait(&audio->queue->cond, &audio->queue->mutex);
+        pthread_mutex_unlock(&audio->queue->mutex);
+    }
+
+    AVPacket *avPacket = getQueue(audio->queue);
+
+    if (audio->queue->size < MIN_QUEUE_SIZE) {
+        pthread_cond_signal(&audio->status->cond);
+    }
+    return avPacket;
+}
 
 void put_audio_packet(Audio *audio, AVPacket *avPacket) {
     LOGE("包  %d ", audio->queue->size);
-    putQueue(audio->queue, avPacket, &audio->mutex, &audio->cond);
+    AVPacket *dst = av_packet_alloc();
+
+    if (av_packet_ref(dst, avPacket)) {
+        av_packet_unref(dst);
+        av_packet_free(&dst);
+        LOGE("克隆失败")
+    }
+    if (putQueue(audio->queue, dst) == 0) {
+        av_packet_unref(dst);
+        av_packet_free(&dst);
+        LOGE("插入失败")
+    }
 }
 
 //得到pcm数据
@@ -99,17 +108,17 @@ int get_pcm(Audio *audio) {
     LOGE("准备解码");
     while (audio->status->isPlay) {
         size = 0;
-        get_audio_packet(audio);
+        AVPacket *avPacket = get_audio_packet(audio);
         //时间矫正
-        if (audio->avPacket->pts != AV_NOPTS_VALUE) {
-            audio->clock = av_q2d(audio->time_base) * audio->avPacket->pts;
+        if (avPacket->pts != AV_NOPTS_VALUE) {
+            audio->clock = av_q2d(audio->time_base) * avPacket->pts;
         }
         LOGE("解码");
         if (audio->codec == NULL) {
             LOGE("没有解码器");
         }
 
-        avcodec_send_packet(audio->codec, audio->avPacket);
+        avcodec_send_packet(audio->codec, avPacket);
         if (avcodec_receive_frame(audio->codec, audio->avFrame) != 0) {
             LOGE("解码失败");
             continue;
@@ -130,10 +139,12 @@ int get_pcm(Audio *audio) {
             nb = getSonicData(audio, nb);
             size = av_samples_get_buffer_size(NULL, audio->out_channer_nb, nb, AV_SAMPLE_FMT_S16, 1);
         }
+        av_packet_unref(avPacket);
+        av_packet_free(&avPacket);
         break;
     }
 
-    av_packet_unref(audio->avPacket);
+
     av_frame_unref(audio->avFrame);
 
     return size;

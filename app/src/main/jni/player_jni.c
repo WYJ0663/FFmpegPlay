@@ -54,8 +54,8 @@ Java_com_ffmpeg_Play__1pause(JNIEnv *env, jobject instance) {
     Player *player = get_player(env, instance);
     if (player->status->isPause) {
         player->status->isPause = false;
-        pthread_cond_signal(&player->audio->cond);
-        pthread_cond_signal(&player->video->cond);
+        pthread_cond_signal(&player->audio->queue->cond);
+        pthread_cond_signal(&player->video->queue->cond);
     } else {
         player->status->isPause = true;
     }

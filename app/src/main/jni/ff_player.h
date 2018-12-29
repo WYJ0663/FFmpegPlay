@@ -12,10 +12,13 @@
 #include <SLES/OpenSLES_Android.h>
 #include <android/native_window.h>
 
-#include "ff_packet_queue.h"
+#include "queue.h"
 #include "sonic/sonic.h"
 
 #include "ff_player_def.h"
+
+#define MAX_QUEUE_SIZE 500
+#define MIN_QUEUE_SIZE 250
 
 
 Player *ffp_create_player();

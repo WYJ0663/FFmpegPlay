@@ -12,7 +12,7 @@
 #include <SLES/OpenSLES_Android.h>
 #include <android/native_window.h>
 
-#include "ff_packet_queue.h"
+#include "queue.h"
 #include "sonic/sonic.h"
 #include "gles2/egl.h"
 #include "gles_draw.h"
@@ -39,11 +39,6 @@ struct Player {
 
     bool isCutImage;
 
-    //同步锁
-    pthread_mutex_t mutex;
-    //条件变量
-    pthread_cond_t cond;
-
     AndroidJNI *androidJNI;
 
     PlayerStatus *status;
@@ -57,6 +52,11 @@ struct Player {
 struct PlayerStatus {
     bool isPlay;
     bool isPause;//是否暂停
+
+    //同步锁
+    pthread_mutex_t mutex;
+    //条件变量
+    pthread_cond_t cond;
 };
 
 struct AndroidJNI {
@@ -79,11 +79,6 @@ struct Video {
 
     AVCodecContext *codec;//解码器上下文
 
-    //同步锁
-    pthread_mutex_t mutex;
-    //条件变量
-    pthread_cond_t cond;
-
     Audio *audio;
 
     AVRational time_base;
@@ -101,7 +96,6 @@ struct Audio {
 
     bool isSilence;//静音
 
-    AVPacket *avPacket;
     AVFrame *avFrame;
 
     pthread_t p_id;//处理线程
@@ -112,11 +106,6 @@ struct Audio {
     SwrContext *swrContext;
     uint8_t *out_buffer;
     int out_channer_nb;
-
-    //同步锁
-    pthread_mutex_t mutex;
-    //条件变量
-    pthread_cond_t cond;
 
     double clock;//从第一zhen开始所需要时间
 

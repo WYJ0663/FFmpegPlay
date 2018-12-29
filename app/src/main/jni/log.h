@@ -10,7 +10,7 @@
 #define DEBUG_MODE TRUE
 
 #if DEBUG_MODE
-#define LOGE(FORMAT, ...) __android_log_print(ANDROID_LOG_ERROR,"qiqi",FORMAT,##__VA_ARGS__);
+#define LOGE(FORMAT, ...) __android_log_print(ANDROID_LOG_ERROR,"yijun",FORMAT,##__VA_ARGS__);
 #else
 #define  LOGE(...)
 #endif
