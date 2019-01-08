@@ -31,6 +31,8 @@ add_library( # Sets the name of the library.
         gles2/gles.c
 #        gles2/matrix.c
         queue.c
+
+        memory_test.cpp
         )
 
 add_library(libavcodec SHARED IMPORTED)
@@ -54,8 +56,15 @@ set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_
 add_library(libswscale SHARED IMPORTED)
 set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libswscale.so)
 
+set(LEAKTRACER_SOURCES
+        ${CMAKE_SOURCE_DIR}/../jniLibs/libleaktracer/src/AllocationHandlers.cpp
+        ${CMAKE_SOURCE_DIR}/../jniLibs/libleaktracer/src/MemoryTrace.cpp
+        )
+add_library(leaktracer STATIC ${LEAKTRACER_SOURCES})
+
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/../jniLibs/include
+        ${CMAKE_SOURCE_DIR}/../jniLibs/libleaktracer/include/
         )
 
 # Searches for a specified prebuilt library and stores the path as a
@@ -85,6 +94,7 @@ target_link_libraries( # Specifies the target library.
         libswresample
         libswscale
 
+        leaktracer
         #        leaktracer
         #        libsoundtouch
         # Links the target library to the log library

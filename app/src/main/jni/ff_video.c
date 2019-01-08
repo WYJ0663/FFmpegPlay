@@ -109,8 +109,7 @@ void *ffp_start_video_play(void *args) {
         if (avcodec_receive_frame(video->codec, frame) != 0) {
             continue;
         }
-
-        if ((pts = av_frame_get_best_effort_timestamp(frame)) == AV_NOPTS_VALUE) {
+        if ((pts = frame->pts) == AV_NOPTS_VALUE) {
             pts = 0;
         }
 

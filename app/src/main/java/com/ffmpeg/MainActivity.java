@@ -125,7 +125,8 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
     }
 
     //    public static final String url4 = Environment.getExternalStorageDirectory().getPath() + "/2222.h264";
-    public static final String url4 = Environment.getExternalStorageDirectory().getPath() + "/test4.mp4";
+//    public static final String url4 = Environment.getExternalStorageDirectory().getPath() + "/test4.mp4";
+    public static final String url4 = "rtmp://172.17.11.60:7777/live/room";
 
     public void player4(View view) {
         mPlayer = new Play();

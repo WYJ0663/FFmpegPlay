@@ -1,3 +1,4 @@
+#include <MemoryTrace.hpp>
 #include "leaktracer.h"
 #include "MemoryTrace.hpp"
 

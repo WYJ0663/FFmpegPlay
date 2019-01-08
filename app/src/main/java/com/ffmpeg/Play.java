@@ -41,6 +41,7 @@ public class Play implements SurfaceHolder.Callback {
     private SurfaceView surfaceView;
 
     public Play() {
+        MemoryTest.start();
         mNativePlayer = _init();
 
         mHandlerThread = new HandlerThread("play");
@@ -87,6 +88,7 @@ public class Play implements SurfaceHolder.Callback {
             @Override
             public void run() {
                 _stop();
+                MemoryTest.stop();
             }
         });
     }

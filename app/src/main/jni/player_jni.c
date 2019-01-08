@@ -26,6 +26,9 @@ Java_com_ffmpeg_Play__1play(JNIEnv *env, jobject instance, jstring inputPath_) {
     ffp_init_ffmpeg(player, url);
 
     ffp_play(player);
+
+    //内存溢出测试
+//    char*s=malloc(1024);
 }
 
 
